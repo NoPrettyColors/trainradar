@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q server
+      - name: Import the server
+        run: python -c "import server.app, server.realtime, server.static_gtfs"
+      - name: Check shell scripts
+        run: |
+          for f in deploy/*.sh; do bash -n "$f"; done
+          shellcheck -S warning deploy/*.sh
+      - name: Check JavaScript syntax
+        run: node --check web/app.js
+      - name: No private keys or certificates
+        run: |
+          if git grep -n -I -E 'BEGIN ([A-Z]+ )?PRIVATE KEY|BEGIN CERTIFICATE' -- . ':!CONTRIBUTING.md' ':!.github/workflows/ci.yml'; then
+            echo "::error::Key or certificate material found"; exit 1
+          fi

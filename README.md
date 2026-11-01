@@ -61,7 +61,7 @@ The maintainer deploys `main` to production. Contributors never need access to t
 
 ## Contributing
 
-Issues and pull requests are welcome. Keep the server dependency-free beyond `tzdata`, take UI values from Brokkr tokens, and never commit server addresses, keys, certificates or tokens.
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for the process. Keep the server dependency-free beyond `tzdata`, take UI values from Brokkr tokens, and never commit server addresses, keys, certificates or tokens.
 
 ## License
 

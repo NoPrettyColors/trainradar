@@ -27,7 +27,7 @@ jobs:
           for f in deploy/*.sh; do bash -n "$f"; done
           shellcheck -S warning deploy/*.sh
       - name: Check JavaScript syntax
-        run: node --check web/app.js
+        run: for f in web/*.js; do node --check "$f"; done
       - name: No private keys or certificates
         run: |
           if git grep -n -I -E 'BEGIN ([A-Z]+ )?PRIVATE KEY|BEGIN CERTIFICATE' -- . ':!CONTRIBUTING.md' ':!.github/workflows/ci.yml'; then

@@ -3,18 +3,20 @@
 const TRAIN_OLD_S = 300; // a vehicle report older than this is drawn faded
 const ANIM_MS = 1500;
 const THEME_KEY = "trainradar-theme";
-const SERVICE_NAMES = {
-  "high-speed": "High speed",
-  "long-distance": "Long distance",
-  regional: "Regional / medium distance",
-  cercanias: "Cercanías / Rodalies",
-};
+const SERVICES = ["high-speed", "long-distance", "regional", "cercanias"];
+const serviceName = (s) => t(`service.${s}`);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
+// Times and numbers in the chosen language's format (i18n.js), always in Madrid time.
+let timeFmt, intFmt;
+function setFormats() {
+  timeFmt = new Intl.DateTimeFormat(t("locale"), { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
+  intFmt = new Intl.NumberFormat(t("locale"));
+}
+setFormats();
 const hhmm = (epoch) => timeFmt.format(new Date(epoch * 1000));
-const fmtInt = new Intl.NumberFormat("en-GB");
+const fmtInt = { format: (n) => intFmt.format(n) };
 
 function delayClass(d) {
   if (d == null) return "none";
@@ -23,17 +25,17 @@ function delayClass(d) {
   return "risk";
 }
 function delayText(d) {
-  if (d == null) return "No live data";
-  if (d <= 60) return "On time";
+  if (d == null) return t("delay.none");
+  if (d <= 60) return t("delay.on-time");
   return `+${Math.round(d / 60)} min`;
 }
 function ago(epoch) {
-  if (!epoch) return "never";
+  if (!epoch) return t("ago.never");
   const s = Math.max(0, Math.round(Date.now() / 1000 - epoch));
-  if (s < 90) return `${s} s ago`;
-  if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  if (s < 172800) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} days ago`;
+  if (s < 90) return t("ago.s", { n: s });
+  if (s < 5400) return t("ago.min", { n: Math.round(s / 60) });
+  if (s < 172800) return t("ago.h", { n: Math.round(s / 3600) });
+  return t("ago.days", { n: Math.round(s / 86400) });
 }
 
 const state = {
@@ -94,8 +96,8 @@ const basemap = () => `https://tiles.openfreemap.org/styles/${theme() === "dark"
 function syncThemeButton() {
   const next = theme() === "dark" ? "light" : "dark";
   const btn = $("theme-btn");
-  btn.setAttribute("aria-label", `Switch to ${next} mode`);
-  btn.title = `Switch to ${next} mode`;
+  btn.setAttribute("aria-label", t(`theme.${next}`));
+  btn.title = t(`theme.${next}`);
   btn.querySelector("use").setAttribute("href", `icons/sprite.svg?v=${document.documentElement.dataset.v}#npc-icon-${next}`);
 }
 
@@ -158,9 +160,20 @@ async function loadNetwork() {
 }
 loadNetwork();
 
+// Place names in the chosen language where OpenStreetMap has one, otherwise the local name.
+function localiseBasemap() {
+  for (const l of map.getStyle()?.layers || []) {
+    const tf = l.layout?.["text-field"];
+    if (tf && JSON.stringify(tf).includes("name") && !map.getLayer(l.id)?.source?.match(/^(stops|trains|shapes|network)$/)) {
+      map.setLayoutProperty(l.id, "text-field", ["coalesce", ["get", `name:${lang}`], ["get", "name"]]);
+    }
+  }
+}
+
 // "style.load" fires on first load and again after every setStyle (theme switch), which drops our layers.
 map.on("style.load", async () => {
   tuneBasemap();
+  localiseBasemap();
   await staticData;
   addLayers();
   addNetworkLayers();
@@ -375,7 +388,8 @@ function applyFilter({ fly = false, duration = 800 } = {}) {
   if (service) params.set("s", service);
   if (nucleo) params.set("n", nucleo);
   if (line) params.set("l", line);
-  history.replaceState(null, "", params.toString() ? `#${params}` : location.pathname);
+  // Keep ?lang= (and any other query) so a shared link keeps its language.
+  history.replaceState(null, "", location.pathname + location.search + (params.toString() ? `#${params}` : ""));
   updateSearchList();
   updateFreshness();
   updateAlertCount();
@@ -384,7 +398,7 @@ function applyFilter({ fly = false, duration = 800 } = {}) {
 
 function readHash({ duration = 800 } = {}) {
   const p = new URLSearchParams(location.hash.slice(1));
-  state.filter.service = SERVICE_NAMES[p.get("s")] ? p.get("s") : "";
+  state.filter.service = SERVICES.includes(p.get("s")) ? p.get("s") : "";
   state.filter.nucleo = p.get("n") || "";
   state.filter.line = p.get("l") || "";
   applyFilter({ fly: !!state.filter.nucleo, duration });
@@ -468,14 +482,14 @@ function updateFreshness() {
   const s = state.snapshot;
   const el = $("fresh");
   if (!s || !s.feed_ts) {
-    el.textContent = online ? "Connecting…" : "Offline";
+    el.textContent = online ? t("status.connecting") : t("status.offline");
     return;
   }
   const age = Math.max(0, Math.round(Date.now() / 1000 - s.feed_ts));
   const stale = age > s.stale_after_s;
-  const parts = [`${fmtInt.format(visibleTrains().length)} trains`, `Synced ${hhmm(s.feed_ts)}`];
-  if (!online) parts.push("Offline");
-  else if (stale) parts.push("Renfe feed delayed");
+  const parts = [t("status.trains", { n: fmtInt.format(visibleTrains().length) }), t("status.synced", { time: hhmm(s.feed_ts) })];
+  if (!online) parts.push(t("status.offline"));
+  else if (stale) parts.push(t("status.delayed"));
   el.textContent = parts.join(" | ");
   el.classList.toggle("stale", !online || stale);
 }
@@ -522,7 +536,7 @@ function select(sel) {
   state.selected = sel;
   for (const [type, id] of Object.entries(PANEL_BUTTONS)) $(id).setAttribute("aria-expanded", String(sel.type === type));
   $("panel").hidden = false;
-  $("panel-body").innerHTML = `<p class="empty">Loading…</p>`;
+  $("panel-body").innerHTML = `<p class="empty">${t("loading")}</p>`;
   refreshPanel({ fly: true });
 }
 
@@ -545,7 +559,7 @@ async function refreshPanel({ fly = false } = {}) {
   const url = sel.type === "train" ? `/api/trip/${encodeURIComponent(sel.id)}` : `/api/stop/${encodeURIComponent(sel.id)}`;
   const r = await fetch(url);
   if (req !== panelReq) return;
-  if (!r.ok) { $("panel-body").innerHTML = `<p class="empty">No longer available.</p>`; return; }
+  if (!r.ok) { $("panel-body").innerHTML = `<p class="empty">${t("gone")}</p>`; return; }
   const d = await r.json();
   if (sel.type === "train") renderTrip(d, fly); else renderStop(d, fly);
 }
@@ -558,25 +572,26 @@ function badge(line, color, text, service) {
 }
 
 function renderTrip(d, fly) {
-  const t = d.train;
+  const tr = d.train;
   if (map.getLayer("train-selected")) map.setFilter("train-selected", ["==", ["get", "trip_id"], d.trip_id]);
-  if (fly && t) map.flyTo({ center: [t.lon, t.lat], zoom: Math.max(map.getZoom(), d.service === "cercanias" ? 11 : 8), duration: 800 });
+  if (fly && tr) map.flyTo({ center: [tr.lon, tr.lat], zoom: Math.max(map.getZoom(), d.service === "cercanias" ? 11 : 8), duration: 800 });
   const dest = d.stops.at(-1)?.name || "";
-  const status = t ? ({ STOPPED_AT: "Stopped at", INCOMING_AT: "Arriving at", IN_TRANSIT_TO: "Heading to" }[t.status] || "Near") + ` ${esc(t.stop_name)}` : "Not reporting a position";
+  const known = ["STOPPED_AT", "INCOMING_AT", "IN_TRANSIT_TO"];
+  const status = tr ? esc(t(known.includes(tr.status) ? `trip.${tr.status}` : "trip.near", { stop: tr.stop_name })) : t("trip.no-position");
   const rows = d.stops.map((s) => {
     const cls = [s.passed && "passed", s.current && "current"].filter(Boolean).join(" ");
     const late = s.expected && s.expected - s.scheduled > 60;
     const time = late ? `<s>${hhmm(s.scheduled)}</s>${hhmm(s.expected)}` : hhmm(s.scheduled);
     return `<li class="${cls}"><span class="pin"></span><a data-stop="${esc(s.id)}">${esc(s.name)}</a><span class="t">${time}</span></li>`;
   }).join("");
-  const where = d.service === "cercanias" ? d.nucleo : SERVICE_NAMES[d.service] || "";
+  const where = d.service === "cercanias" ? d.nucleo : (d.service ? serviceName(d.service) : "");
   $("panel-body").innerHTML = `
-    <h2>${badge(d.line, d.color, d.text_color, d.service)}to ${esc(dest)}</h2>
+    <h2>${badge(d.line, d.color, d.text_color, d.service)}${esc(t("trip.to", { dest }))}</h2>
     <p class="meta">
-      Train ${esc(t?.train || "—")} · ${esc(where)}${t?.platform ? ` · Platform ${esc(t.platform)}` : ""}<br>
+      ${esc(t("trip.train", { n: tr?.train || "—" }))} · ${esc(where)}${tr?.platform ? ` · ${esc(t("trip.platform", { n: tr.platform }))}` : ""}<br>
       ${status} · <span class="delay ${delayClass(d.delay)}">${delayText(d.delay)}</span>
     </p>
-    <p class="section">Stops</p>
+    <p class="section">${t("trip.stops")}</p>
     <ul class="stops">${rows}</ul>`;
   for (const a of $("panel-body").querySelectorAll("[data-stop]")) a.addEventListener("click", () => select({ type: "stop", id: a.dataset.stop }));
 }
@@ -595,9 +610,9 @@ function renderStop(d, fly) {
   }).join("");
   $("panel-body").innerHTML = `
     <h2>${esc(d.stop.name)}</h2>
-    <p class="meta">● = live position</p>
-    <p class="section">Next departures</p>
-    ${rows ? `<table class="board">${rows}</table>` : `<p class="empty">No departures in the next 90 minutes.</p>`}`;
+    <p class="meta">${t("stop.live")}</p>
+    <p class="section">${t("stop.next")}</p>
+    ${rows ? `<table class="board">${rows}</table>` : `<p class="empty">${t("stop.none")}</p>`}`;
   for (const a of $("panel-body").querySelectorAll("[data-trip]")) a.addEventListener("click", () => select({ type: "train", id: a.dataset.trip }));
 }
 
@@ -605,14 +620,15 @@ function renderStop(d, fly) {
 
 function liveLine(src) {
   const l = src.live || {};
-  if (l.error) return `<span class="delay risk">Not responding: ${esc(l.error)}</span>`;
+  if (l.error) return `<span class="delay risk">${esc(t("src.error", { e: l.error }))}</span>`;
+  const n = (v) => fmtInt.format(v);
   const bits = [];
-  if (l.entities != null) bits.push(`${fmtInt.format(l.entities)} ${src.id === "alerts" ? "notices" : "records"} in the feed`);
-  if (l.active != null) bits.push(`${fmtInt.format(l.active)} active now`);
-  if (l.stations != null) bits.push(`${fmtInt.format(l.stations)} stations served`, `${fmtInt.format(l.routes)} routes`, `${fmtInt.format(l.trips_today)} trips today`);
-  if (l.links != null) bits.push(`${fmtInt.format(l.links)} track links`);
-  if (l.updated_at) bits.push(`${src.id.startsWith("gtfs_") ? "loaded" : "updated"} ${ago(l.updated_at)}`);
-  if (src.id === "network" && !l.links) bits.push("downloading on first start…");
+  if (l.entities != null) bits.push(t(src.id === "alerts" ? "src.notices" : "src.records", { n: n(l.entities) }));
+  if (l.active != null) bits.push(t("src.active", { n: n(l.active) }));
+  if (l.stations != null) bits.push(t("src.stations", { n: n(l.stations) }), t("src.routes", { n: n(l.routes) }), t("src.trips", { n: n(l.trips_today) }));
+  if (l.links != null) bits.push(t("src.links", { n: n(l.links) }));
+  if (l.updated_at) bits.push(t(src.id.startsWith("gtfs_") ? "src.loaded" : "src.updated", { ago: ago(l.updated_at) }));
+  if (src.id === "network" && !l.links) bits.push(t("src.downloading"));
   return bits.length ? esc(bits.join(" · ")) : "";
 }
 
@@ -622,20 +638,20 @@ function freshness(d) {
   const newest = Math.max(live.vehicles.updated_at || 0, live.vehicles_ld.updated_at || 0);
   return `
     <ol class="steps">
-      <li>Renfe updates its live feeds about every 20 seconds, from what each train reports.${newest ? ` <span class="source-live">Last update ${ago(newest)}.</span>` : ""}</li>
-      <li>The TrainRadar server fetches each feed every 20 seconds, once for everyone, so Renfe's load stays the same however many people are watching.</li>
-      <li>New positions are pushed to your browser as soon as they arrive, and the dots glide to them. A position on the map is usually less than a minute behind the train.</li>
-      <li>Timetables and stations change daily and the rail network rarely, so the server keeps them in a cache, refreshes them in the background, and the map never waits for a download.</li>
+      <li>${esc(t("fresh.1"))}${newest ? ` <span class="source-live">${esc(t("fresh.last", { ago: ago(newest) }))}</span>` : ""}</li>
+      <li>${esc(t("fresh.2"))}</li>
+      <li>${esc(t("fresh.3"))}</li>
+      <li>${esc(t("fresh.4"))}</li>
     </ol>
-    <p class="meta">In the status bar, "Synced" is the time of Renfe's last position update. "Renfe feed delayed" appears when Renfe hasn't updated for 3 minutes, and "Offline" when your connection drops. A faded train hasn't reported its position for over 5 minutes.</p>`;
+    <p class="meta">${esc(t("fresh.status"))}</p>`;
 }
 
 async function renderData(req) {
   let d;
-  try { d = await fetch("/api/sources").then((r) => r.json()); } catch { d = null; }
+  try { d = await fetch(`/api/sources?lang=${lang}`).then((r) => r.json()); } catch { d = null; }
   if (req !== panelReq || state.selected?.type !== "data") return;
-  if (!d) { $("panel-body").innerHTML = `<p class="empty">Couldn't load the source list.</p>`; return; }
-  const counts = Object.entries(SERVICE_NAMES)
+  if (!d) { $("panel-body").innerHTML = `<p class="empty">${esc(t("data.failed"))}</p>`; return; }
+  const counts = SERVICES.map((k) => [k, serviceName(k)])
     .map(([k, name]) => `<li><span class="badge" style="background:${esc(k === "cercanias" ? token("--npc-color-surface-raised") : serviceColor(k))};color:${esc(k === "cercanias" ? token("--npc-color-text-default") : token("--app-service-on-fill"))}">${fmtInt.format(d.trains[k] || 0)}</span>${esc(name)}</li>`)
     .join("");
   // Brokkr inspector content: the properties as key and value rows.
@@ -644,29 +660,29 @@ async function renderData(req) {
       <h3>${esc(s.name)}</h3>
       <p>${esc(s.use)}</p>
       <dl class="props">
-        <dt>Publisher</dt><dd>${esc(s.publisher)}</dd>
-        <dt>Format</dt><dd>${esc(s.format)}</dd>
-        <dt>Publisher updates</dt><dd>${esc(s.updates)}</dd>
-        <dt>TrainRadar fetches</dt><dd>${esc(s.checks)}</dd>
-        <dt>Licence</dt><dd><a href="${esc(s.licence.url)}" target="_blank" rel="noopener">${esc(s.licence.name)}</a></dd>
+        <dt>${t("prop.publisher")}</dt><dd>${esc(s.publisher)}</dd>
+        <dt>${t("prop.format")}</dt><dd>${esc(s.format)}</dd>
+        <dt>${t("prop.updates")}</dt><dd>${esc(s.updates)}</dd>
+        <dt>${t("prop.checks")}</dt><dd>${esc(s.checks)}</dd>
+        <dt>${t("prop.licence")}</dt><dd><a href="${esc(s.licence.url)}" target="_blank" rel="noopener">${esc(s.licence.name)}</a></dd>
       </dl>
       ${s.note ? `<p class="source-note">${esc(s.note)}</p>` : ""}
       <p class="source-live">${liveLine(s)}</p>
-      <p class="source-links"><a href="${esc(s.page)}" target="_blank" rel="noopener">About the dataset</a>${s.feed ? ` · <a href="${esc(s.feed)}" target="_blank" rel="noopener">Open the raw data</a>` : ""}</p>
+      <p class="source-links"><a href="${esc(s.page)}" target="_blank" rel="noopener">${t("link.about")}</a>${s.feed ? ` · <a href="${esc(s.feed)}" target="_blank" rel="noopener">${t("link.raw")}</a>` : ""}</p>
     </article>`).join("");
   const more = d.more.map((m) => `<li><a href="${esc(m.page)}" target="_blank" rel="noopener">${esc(m.name)}</a> <span class="source-meta">${esc(m.publisher)}</span></li>`).join("");
   $("panel-body").innerHTML = `
-    <h2>Open data</h2>
-    <p class="meta">Everything on this map comes from open data published by public bodies in Spain. Here's how fresh it is, each source, how often it changes and what TrainRadar does with it. Open any feed yourself: it's public.</p>
-    <p class="section">Trains on the map now</p>
+    <h2>${t("data")}</h2>
+    <p class="meta">${esc(t("data.intro"))}</p>
+    <p class="section">${t("data.now")}</p>
     <ul class="counts">${counts}</ul>
-    <p class="section">How fresh is it</p>
+    <p class="section">${t("data.fresh")}</p>
     ${freshness(d)}
-    <p class="section">Sources used</p>
+    <p class="section">${t("data.used")}</p>
     ${cards}
-    <p class="section">More open rail data</p>
+    <p class="section">${t("data.more")}</p>
     <ul class="more">${more}</ul>
-    <p class="meta">TrainRadar is open source: <a href="https://github.com/NoPrettyColors/trainradar" target="_blank" rel="noopener">github.com/NoPrettyColors/trainradar</a></p>`;
+    <p class="meta">${t("data.oss")} <a href="https://github.com/NoPrettyColors/trainradar" target="_blank" rel="noopener">github.com/NoPrettyColors/trainradar</a></p>`;
 }
 
 $("data-btn").addEventListener("click", () => {
@@ -696,11 +712,22 @@ function renderAlerts() {
   const { nucleo } = state.filter;
   const list = filteredAlerts();
   $("panel-body").innerHTML = `
-    <h2>Service alerts</h2>
-    <p class="meta">${nucleo ? esc(nucleo) : "All Cercanías networks"} · ${list.length} active · Renfe's alerts feed covers Cercanías and Rodalies only</p>
-    ${list.map((a) => `<div class="alert"><div class="lines">${esc(a.nucleos.join(", "))}${a.lines.length ? " · " + esc(a.lines.join(", ")) : ""}</div>${esc(a.text)}</div>`).join("") || `<p class="empty">No active alerts.</p>`}`;
+    <h2>${t("alerts.title")}</h2>
+    <p class="meta">${nucleo ? esc(nucleo) : t("alerts.all")} · ${t("alerts.active", { n: list.length })} · ${t("alerts.scope")}${t("alerts.lang") ? `. ${t("alerts.lang")}` : ""}</p>
+    ${list.map((a) => `<div class="alert"><div class="lines">${esc(a.nucleos.join(", "))}${a.lines.length ? " · " + esc(a.lines.join(", ")) : ""}</div>${esc(a.text)}</div>`).join("") || `<p class="empty">${t("alerts.none")}</p>`}`;
 }
 
 $("alerts-btn").addEventListener("click", () => {
   if (state.selected?.type === "alerts") closePanel(); else select({ type: "alerts" });
+});
+
+// ---------------------------------------------------------------- language
+
+// i18n.js has already swapped the static text; redraw what the app writes itself.
+langListeners.push(() => {
+  setFormats();
+  syncThemeButton();
+  localiseBasemap();
+  updateFreshness();
+  if (state.selected) refreshPanel();
 });

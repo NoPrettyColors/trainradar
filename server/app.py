@@ -242,7 +242,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"error": "rail network still downloading"}, 503)
                 return self._send(NETWORK.gz, "application/geo+json", gz=True, cache="public, max-age=86400")
             if path == "/api/sources":
-                return self._json(sources_report())
+                lang = q.get("lang", ["en"])[0]
+                return self._json(sources_report(lang if lang in sources.LANGS else "en"))
             if path.startswith("/api/trip/"):
                 d = trip_detail(path[len("/api/trip/"):])
                 return self._json(d) if d else self._json({"error": "trip not found"}, 404)
@@ -288,8 +289,8 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
 
-def sources_report() -> dict:
-    """The data catalogue plus live numbers for each source."""
+def sources_report(lang: str = "en") -> dict:
+    """The data catalogue in one language, plus live numbers for each source."""
     with LIVE.lock:
         feeds = {k: dict(v) for k, v in LIVE.feed_status.items()}
         by_service: dict[str, int] = {}
@@ -310,8 +311,8 @@ def sources_report() -> dict:
                     "routes": len(g.routes), "trips_today": len(g.trips)}
         elif src["id"] == "network":
             live = NETWORK.stats | {"error": NETWORK.error}
-        used.append({**src, "live": live})
-    return {"used": used, "more": sources.MORE, "trains": by_service, "services": static_gtfs.SERVICE_NAMES}
+        used.append({**sources.localise(src, lang), "live": live})
+    return {"used": used, "more": sources.localise(sources.MORE, lang), "trains": by_service}
 
 
 def main() -> None:

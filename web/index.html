@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TrainRadar</title>
-  <meta name="description" content="Live map of Renfe trains in Spain, high speed to Cercanías, and the open data behind it">
+  <meta name="description" content="Live map of Renfe trains in Spain, high speed to Cercanías, and the open data behind it. In Catalan, Spanish and English.">
   <link rel="icon" href="https://brokkr.noprettycolors.com/logos/logo_NPC_Avatar.svg" type="image/svg+xml">
   <!-- Apply a saved theme choice, and touch density on touch screens, before first paint. -->
   <script>
@@ -17,93 +17,103 @@
   <link rel="stylesheet" href="style.css?v={{v}}">
 </head>
 <body>
-  <!-- Brokkr app shell: header, toolbar, content with the inspector beside it, status bar. -->
+  <!-- Brokkr app shell: header, toolbar, content with the inspector beside it, status bar.
+       Text is in English here and replaced by i18n.js; data-i18n* attributes name the strings. -->
   <header class="shell-header">
-    <a class="home" href="/" title="TrainRadar home">
+    <a class="home" href="/" title="TrainRadar home" data-i18n-title="home">
       <img class="logo-charcoal" src="https://brokkr.noprettycolors.com/logos/logo_NPC_Charcoal.svg" alt="NoPrettyColors" width="28" height="20">
       <img class="logo-chalk" src="https://brokkr.noprettycolors.com/logos/logo_NPC_Chalk.svg" alt="NoPrettyColors" width="28" height="20">
       <span class="app-name">TrainRadar</span>
     </a>
-    <span class="context">Spain's trains from open data</span>
+    <span class="context" data-i18n="context">Spain's trains from open data</span>
+    <!-- Language selector (Brokkr finding 19). Each language is named in its own language. -->
+    <label class="field lang">
+      <span class="sr" data-i18n="language">Language</span>
+      <select id="lang-select">
+        <option value="ca" lang="ca">Català</option>
+        <option value="es" lang="es">Español</option>
+        <option value="en" lang="en">English</option>
+      </select>
+    </label>
     <button id="theme-btn" class="icon-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
       <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-dark"></use></svg>
     </button>
   </header>
 
-  <div class="toolbar" role="toolbar" aria-label="Filters and views">
+  <div class="toolbar" role="toolbar" aria-label="Filters and views" data-i18n-aria-label="toolbar">
     <div class="group">
       <label class="field">
-        <span class="sr">Service</span>
+        <span class="sr" data-i18n="service">Service</span>
         <select id="service">
-          <option value="">All services</option>
-          <option value="high-speed">High speed</option>
-          <option value="long-distance">Long distance</option>
-          <option value="regional">Regional / medium distance</option>
-          <option value="cercanias">Cercanías / Rodalies</option>
+          <option value="" data-i18n="service.all">All services</option>
+          <option value="high-speed" data-i18n="service.high-speed">High speed</option>
+          <option value="long-distance" data-i18n="service.long-distance">Long distance</option>
+          <option value="regional" data-i18n="service.regional">Regional / medium distance</option>
+          <option value="cercanias" data-i18n="service.cercanias">Cercanías / Rodalies</option>
         </select>
       </label>
       <label class="field">
-        <span class="sr">Cercanías network</span>
-        <select id="nucleo"><option value="">All of Spain</option></select>
+        <span class="sr" data-i18n="nucleo">Cercanías network</span>
+        <select id="nucleo"><option value="" data-i18n="nucleo.all">All of Spain</option></select>
       </label>
       <label class="field">
-        <span class="sr">Line</span>
-        <select id="line"><option value="">All lines</option></select>
+        <span class="sr" data-i18n="line">Line</span>
+        <select id="line"><option value="" data-i18n="line.all">All lines</option></select>
       </label>
     </div>
     <div class="group grow">
       <label class="field search">
-        <span class="sr">Find a train or station</span>
+        <span class="sr" data-i18n="search">Find a train or station</span>
         <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-search"></use></svg>
-        <input id="search" type="search" placeholder="Train no. or station" autocomplete="off" list="search-list">
+        <input id="search" type="search" placeholder="Train no. or station" data-i18n-placeholder="search.placeholder" autocomplete="off" list="search-list">
         <datalist id="search-list"></datalist>
       </label>
     </div>
     <div class="group">
       <button id="data-btn" class="button" type="button" aria-expanded="false">
         <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-info"></use></svg>
-        <span class="label">Open data</span>
+        <span class="label" data-i18n="data">Open data</span>
       </button>
       <button id="alerts-btn" class="button" type="button" aria-expanded="false">
         <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-notification"></use></svg>
-        <span class="label">Alerts</span> <span id="alerts-count" class="count">0</span>
+        <span class="label" data-i18n="alerts">Alerts</span> <span id="alerts-count" class="count">0</span>
       </button>
     </div>
   </div>
 
   <main class="content">
     <div class="view">
-      <div id="map" aria-label="Train map"></div>
+      <div id="map" aria-label="Train map" data-i18n-aria-label="map"></div>
 
       <details id="legend" class="legend" open>
-        <summary>Legend and layers</summary>
+        <summary data-i18n="legend">Legend and layers</summary>
         <div class="legend-group" aria-hidden="true">
-          <span class="legend-title">Trains</span>
-          <span><i class="fill high-speed"></i>High speed</span>
-          <span><i class="fill long-distance"></i>Long distance</span>
-          <span><i class="fill regional"></i>Regional</span>
-          <span><i class="fill cercanias"></i>Cercanías, in line colour</span>
+          <span class="legend-title" data-i18n="legend.trains">Trains</span>
+          <span><i class="fill high-speed"></i><span data-i18n="legend.high-speed">High speed</span></span>
+          <span><i class="fill long-distance"></i><span data-i18n="legend.long-distance">Long distance</span></span>
+          <span><i class="fill regional"></i><span data-i18n="legend.regional">Regional</span></span>
+          <span><i class="fill cercanias"></i><span data-i18n="legend.cercanias">Cercanías, in line colour</span></span>
         </div>
         <div class="legend-group" aria-hidden="true">
-          <span class="legend-title">Delay ring</span>
-          <span><i class="ring positive"></i>On time</span>
-          <span><i class="ring caution"></i>1–5 min late</span>
-          <span><i class="ring risk"></i>Over 5 min late</span>
-          <span><i class="ring neutral"></i>No live data</span>
+          <span class="legend-title" data-i18n="legend.ring">Delay ring</span>
+          <span><i class="ring positive"></i><span data-i18n="delay.on-time">On time</span></span>
+          <span><i class="ring caution"></i><span data-i18n="delay.1-5">1–5 min late</span></span>
+          <span><i class="ring risk"></i><span data-i18n="delay.over-5">Over 5 min late</span></span>
+          <span><i class="ring neutral"></i><span data-i18n="delay.none">No live data</span></span>
         </div>
         <div class="legend-group">
-          <span class="legend-title">Show</span>
-          <label title="Standard gauge, 1,435 mm"><input type="checkbox" id="show-hs" checked><i class="track high-speed"></i>High-speed lines</label>
-          <label title="Iberian gauge, 1,668 mm"><input type="checkbox" id="show-conventional" checked><i class="track conventional"></i>Conventional lines</label>
-          <label title="Metre gauge: FEVE and regional lines"><input type="checkbox" id="show-metre" checked><i class="track metre"></i>Metre gauge</label>
-          <label title="Track IGN publishes without a gauge: mostly sidings and yards"><input type="checkbox" id="show-other"><i class="track other"></i>Other track</label>
-          <label><input type="checkbox" id="show-stations" checked><i class="station"></i>Stations</label>
+          <span class="legend-title" data-i18n="legend.show">Show</span>
+          <label title="Standard gauge, 1,435 mm" data-i18n-title="track.high-speed.title"><input type="checkbox" id="show-hs" checked><i class="track high-speed"></i><span data-i18n="track.high-speed">High-speed lines</span></label>
+          <label title="Iberian gauge, 1,668 mm" data-i18n-title="track.conventional.title"><input type="checkbox" id="show-conventional" checked><i class="track conventional"></i><span data-i18n="track.conventional">Conventional lines</span></label>
+          <label title="Metre gauge: FEVE and regional lines" data-i18n-title="track.metre.title"><input type="checkbox" id="show-metre" checked><i class="track metre"></i><span data-i18n="track.metre">Metre gauge</span></label>
+          <label title="Track IGN publishes without a gauge: mostly sidings and yards" data-i18n-title="track.other.title"><input type="checkbox" id="show-other"><i class="track other"></i><span data-i18n="track.other">Other track</span></label>
+          <label><input type="checkbox" id="show-stations" checked><i class="station"></i><span data-i18n="stations">Stations</span></label>
         </div>
       </details>
     </div>
 
     <aside id="panel" class="inspector" hidden>
-      <button id="panel-close" class="icon-button close" type="button" aria-label="Close" title="Close">
+      <button id="panel-close" class="icon-button close" type="button" aria-label="Close" title="Close" data-i18n-aria-label="close" data-i18n-title="close">
         <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-close"></use></svg>
       </button>
       <div id="panel-body"></div>
@@ -111,15 +121,16 @@
   </main>
 
   <footer class="status-bar">
-    <span>Data: <a href="https://data.renfe.com" target="_blank" rel="noopener">Renfe</a>, <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a>, CC BY 4.0</span>
+    <span><span data-i18n="status.data">Data:</span> <a href="https://data.renfe.com" target="_blank" rel="noopener">Renfe</a>, <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a>, CC BY 4.0</span>
     <span class="sep" aria-hidden="true">|</span>
-    <span>Positions are approximate</span>
+    <span data-i18n="status.approx">Positions are approximate</span>
     <span class="sep" aria-hidden="true">|</span>
-    <a href="https://github.com/NoPrettyColors/trainradar" target="_blank" rel="noopener">Source code</a>
+    <a href="https://github.com/NoPrettyColors/trainradar" target="_blank" rel="noopener" data-i18n="status.source">Source code</a>
     <span id="fresh" class="end" role="status" aria-live="polite">Connecting…</span>
   </footer>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="i18n.js?v={{v}}"></script>
   <script src="app.js?v={{v}}"></script>
 </body>
 </html>

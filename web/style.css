@@ -73,6 +73,9 @@ body {
   font: var(--npc-shell-header-context-typography-font-weight) var(--npc-shell-header-context-typography-font-size)/var(--npc-shell-header-context-typography-line-height) var(--npc-shell-header-context-typography-font-family);
 }
 
+/* Language selector: a dense select in the header (Brokkr finding 19). */
+.lang { flex: none; }
+
 /* ---------------------------------------------------------------- toolbar */
 
 .toolbar {
@@ -330,6 +333,7 @@ input::placeholder { color: var(--npc-control-input-placeholder-color); }
 @media (max-width: 599px) {
   .context { display: none; }
   .home { margin-inline-end: auto; }
+  .shell-header { gap: var(--npc-space-8); }
   .toolbar .group:first-child { flex: 1 1 100%; }
   .toolbar .group.grow { flex: 1 1 0; min-width: 0; }
   .toolbar .group:first-child .field { flex: 1 1 0; min-width: 0; }

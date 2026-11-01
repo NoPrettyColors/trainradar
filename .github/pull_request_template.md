@@ -14,5 +14,6 @@ Closes #
 - [ ] Ran it locally and checked the map in light and dark themes and at phone width
 - [ ] Server stays standard-library only; no new per-request calls to data providers
 - [ ] UI uses Brokkr tokens, no hard-coded colours or sizes
+- [ ] New interface text is in Catalan, Spanish and English
 - [ ] New data sources are open, credited in the data panel and in `THIRD-PARTY-NOTICES.md`
 - [ ] No secrets, server addresses, keys or account IDs anywhere in the diff

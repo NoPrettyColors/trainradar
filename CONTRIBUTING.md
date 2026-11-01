@@ -23,6 +23,7 @@ Maintainers merge with **squash merge** only, so the PR title becomes the commit
 
 - **Server:** Python standard library only (plus `tzdata`). Don't add runtime dependencies without discussing it in an issue.
 - **Upstream etiquette:** one shared poll per feed serves every viewer. Never add per-request calls to Renfe or other data providers.
+- **Languages:** the interface is in Catalan, Spanish and English. New interface text needs all three (`web/i18n.js`, or `L(en, es, ca)` in `server/sources.py`); if you can't write one, say so in the PR and a maintainer will add it.
 - **UI:** values come from Brokkr tokens (`--npc-*`); app-only variables use the `--app-` prefix. No hard-coded colours or sizes.
 - **Data:** only open, documented sources with a licence that allows reuse. Credit them in the app's data panel and in `THIRD-PARTY-NOTICES.md`.
 - **Line endings:** LF.

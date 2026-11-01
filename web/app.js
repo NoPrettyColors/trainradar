@@ -419,8 +419,12 @@ const visibleTrains = () => (state.snapshot?.trains || []).filter(trainMatches);
 let online = true;
 function connect() {
   const es = new EventSource("/api/stream");
+  let planned = false;
   es.addEventListener("trains", (e) => { online = true; onSnapshot(JSON.parse(e.data)); });
+  // The server closes each stream after about half an hour; EventSource reconnects on its own.
+  es.addEventListener("reconnect", () => { planned = true; });
   es.onerror = () => {
+    if (planned && es.readyState === EventSource.CONNECTING) { planned = false; return; }
     online = false;
     updateFreshness();
     // EventSource retries dropped connections by itself, but gives up on an error response such as

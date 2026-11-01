@@ -12,6 +12,7 @@ import json
 import logging
 import mimetypes
 import os
+import random
 import threading
 import time
 from datetime import datetime
@@ -34,6 +35,10 @@ ASSET_VERSION = hashlib.sha256(b"".join(
 )).hexdigest()[:12]
 
 log = logging.getLogger("trainradar")
+
+# A stream is closed after about this long and the browser opens a new one, so an idle client
+# can't hold a slot for good. The spread keeps clients from all reconnecting at once.
+STREAM_MAX_S = 30 * 60
 
 
 class StreamSlots:
@@ -140,7 +145,7 @@ class Static:
 STATIC: Static
 LIVE: LiveState
 NETWORK: Network
-STREAMS = StreamSlots(500, 50)
+STREAMS = StreamSlots(500, 10)
 
 
 def trip_detail(trip_id: str) -> dict | None:
@@ -334,6 +339,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("CF-Connecting-IP") or self.client_address[0]
 
     def _stream(self) -> None:
+        if self.command == "HEAD":  # headers only: no slot and no event body
+            return self._send(b"", "text/event-stream", cache="no-store, no-transform")
         ip = self._client_ip()
         if not STREAMS.acquire(ip):
             log.warning("Stream refused for %s: %d streams open", ip, STREAMS.in_use())
@@ -361,7 +368,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.close_connection = True
         version = -1
+        deadline = time.monotonic() + STREAM_MAX_S * random.uniform(0.8, 1.2)
         while True:
+            if time.monotonic() > deadline:
+                # Tell the client this close is planned, so it reconnects without showing offline.
+                self.wfile.write(b"event: reconnect\ndata: \n\n")
+                self.wfile.flush()
+                return
             new = LIVE.wait_for(version, timeout=25)
             if new == version:
                 self.wfile.write(b": keepalive\n\n")
@@ -405,8 +418,8 @@ def main() -> None:
     ap.add_argument("--max-streams", type=int, default=int(os.environ.get("TRAINRADAR_MAX_STREAMS", 500)),
                     help="concurrent /api/stream clients in total (default 500, or $TRAINRADAR_MAX_STREAMS)")
     ap.add_argument("--max-streams-per-ip", type=int,
-                    default=int(os.environ.get("TRAINRADAR_MAX_STREAMS_PER_IP", 50)),
-                    help="concurrent /api/stream clients per address (default 50, or $TRAINRADAR_MAX_STREAMS_PER_IP)")
+                    default=int(os.environ.get("TRAINRADAR_MAX_STREAMS_PER_IP", 10)),
+                    help="concurrent /api/stream clients per address (default 10, or $TRAINRADAR_MAX_STREAMS_PER_IP)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,

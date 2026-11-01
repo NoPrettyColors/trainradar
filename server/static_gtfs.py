@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re
 import time
 import urllib.request
 import zipfile
@@ -73,6 +74,14 @@ def _rows(zf: zipfile.ZipFile, name: str):
         header = [h.strip() for h in next(reader)]
         for row in reader:
             yield dict(zip(header, (v.strip() for v in row)))
+
+
+def hex_color(value: str | None, default: str) -> str:
+    """'#RRGGBB' from a GTFS color field; anything else gets the default.
+
+    The client writes route colors into inline styles, so only a plain hex color gets through.
+    """
+    return "#" + (value if value and re.fullmatch(r"[0-9A-Fa-f]{6}", value) else default)
 
 
 def gtfs_seconds(hms: str) -> int:
@@ -166,8 +175,8 @@ def load(data_dir: Path, kind: str = "cercanias") -> StaticGTFS:
                 "id": r["route_id"],
                 "short": r["route_short_name"],
                 "long": " ".join(r["route_long_name"].split()),
-                "color": "#" + (r.get("route_color") or "888888"),
-                "text": "#" + (r.get("route_text_color") or "FFFFFF"),
+                "color": hex_color(r.get("route_color"), "888888"),
+                "text": hex_color(r.get("route_text_color"), "FFFFFF"),
                 "nucleo": g.nucleo_of(r["route_id"]),
                 "service": "cercanias" if kind == "cercanias" else ld_service(r["route_short_name"]),
             }

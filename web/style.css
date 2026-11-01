@@ -1,4 +1,5 @@
-/* TrainRadar on Brokkr 1.0.3 (brokkr.noprettycolors.com/v/1.0.3/brokkr.css).
+/* TrainRadar on Brokkr 1.1.0 (brokkr.noprettycolors.com/v/1.1.0/brokkr.css).
+   The page is Brokkr's app shell: header, toolbar, content with the inspector beside it, status bar.
    Every color, size and type value comes from a Brokkr token. App-only variables
    cover the gaps logged in docs/BROKKR-FINDINGS.md. */
 
@@ -10,25 +11,34 @@
   src: url("https://brokkr.noprettycolors.com/fonts/noto-sans/2.015/NotoSans-Bold.woff2") format("woff2"); }
 
 :root {
-  /* Finding 1: no neutral status in 1.0.3 (color.status.neutral arrives in 1.1.0). */
-  --app-status-none: var(--npc-color-text-subtle);
-  /* Finding 2: no legend component in 1.0.3 (legend.* arrives in 1.1.0). */
-  --app-legend-swatch: var(--npc-space-12);
+  /* Finding 11: the chart palette has one accent and three greys, so services and
+     track types reuse them: the accent marks high speed, greys the rest. */
+  --app-service-high-speed: var(--npc-color-chart-emphasis);
+  --app-service-long-distance: var(--npc-color-chart-series-4);
+  --app-service-regional: var(--npc-color-chart-series-2);
+  --app-service-on-fill: var(--npc-color-surface-page);
+  --app-track-high-speed: var(--npc-color-chart-emphasis);
+  --app-track-conventional: var(--npc-color-chart-series-3);
+  --app-track-metre: var(--npc-color-chart-series-2);
+  --app-track-other: var(--npc-color-chart-gridline);
+  /* Finding 12: no basemap palette. Land and sea for the dark basemap, from Brokkr surfaces. */
+  --app-map-land: var(--npc-color-surface-raised);
+  --app-map-water: var(--npc-color-surface-page);
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  background: var(--npc-color-surface-page);
+  grid-template-rows: auto auto 1fr auto;
+  background: var(--npc-shell-content-background);
   color: var(--npc-color-text-default);
   font-family: var(--npc-type-body-font-family);
   font-size: var(--npc-type-body-font-size);
   font-weight: var(--npc-type-body-font-weight);
   line-height: var(--npc-type-body-line-height);
 }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr, .toolbar .label.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .icon {
   width: var(--npc-icon-size-dense); height: var(--npc-icon-size-dense);
@@ -37,30 +47,45 @@ body {
 
 /* ---------------------------------------------------------------- header */
 
-.bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--npc-space-8);
-  padding: var(--npc-space-8) var(--npc-space-16);
-  background: var(--npc-color-surface-page);
-  border-bottom: var(--npc-border-width-hairline) solid var(--npc-color-border-hairline);
-  z-index: 2;
+.shell-header {
+  display: flex; align-items: center; gap: var(--npc-shell-header-gap);
+  min-height: var(--npc-shell-header-height); padding: 0 var(--npc-shell-header-padding-inline);
+  background: var(--npc-shell-chrome-background);
+  border-bottom: var(--npc-shell-divider-width) solid var(--npc-shell-divider-color);
 }
-.brand {
-  margin: 0 var(--npc-space-8) 0 0; white-space: nowrap;
-  font-family: var(--npc-type-h3-font-family);
-  font-size: var(--npc-type-h3-font-size);
-  font-weight: var(--npc-type-h3-font-weight);
-  line-height: var(--npc-type-h3-line-height);
-  letter-spacing: var(--npc-type-h3-letter-spacing);
+.home { display: flex; align-items: center; gap: var(--npc-shell-header-gap); flex: none; color: inherit; text-decoration: none; }
+.home img { display: block; flex: none; height: var(--npc-shell-header-logo-height); width: auto; }
+/* The neutral logo follows the theme: Charcoal on light, Chalk on dark, never the Signal logo. */
+.logo-chalk { display: none !important; }
+:root[data-theme="dark"] .logo-chalk { display: block !important; }
+:root[data-theme="dark"] .logo-charcoal { display: none !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-chalk { display: block !important; }
+  :root:not([data-theme="light"]) .logo-charcoal { display: none !important; }
 }
-.brand .sub {
-  color: var(--npc-color-text-subtle);
-  font-size: var(--npc-type-caption-font-size);
-  font-weight: var(--npc-type-caption-font-weight);
-  letter-spacing: var(--npc-type-caption-letter-spacing);
+.app-name {
+  color: var(--npc-shell-header-app-name-color);
+  font: var(--npc-shell-header-app-name-typography-font-weight) var(--npc-shell-header-app-name-typography-font-size)/var(--npc-shell-header-app-name-typography-line-height) var(--npc-shell-header-app-name-typography-font-family);
+}
+.context {
+  min-width: 0; margin-inline-end: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--npc-shell-header-context-color);
+  font: var(--npc-shell-header-context-typography-font-weight) var(--npc-shell-header-context-typography-font-size)/var(--npc-shell-header-context-typography-line-height) var(--npc-shell-header-context-typography-font-family);
 }
 
+/* ---------------------------------------------------------------- toolbar */
+
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--npc-space-8) var(--npc-toolbar-group-gap);
+  min-height: var(--npc-toolbar-height); padding: var(--npc-space-8) var(--npc-toolbar-padding-inline);
+  background: var(--npc-toolbar-background);
+  border-bottom: var(--npc-toolbar-border-width) solid var(--npc-toolbar-border-color);
+}
+.toolbar .group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--npc-toolbar-gap); }
+.toolbar .group.grow { flex: 1 1 auto; }
+
 select, input {
-  min-height: var(--npc-control-input-height-dense);
+  min-height: var(--npc-toolbar-control-height);
   padding: 0 var(--npc-control-input-padding-inline);
   background: var(--npc-control-input-background);
   color: var(--npc-control-input-color);
@@ -72,13 +97,13 @@ select, input {
 }
 select:disabled { color: var(--npc-control-button-disabled-color); border-color: var(--npc-control-button-disabled-border-color); }
 input::placeholder { color: var(--npc-control-input-placeholder-color); }
-.search { position: relative; display: flex; align-items: center; }
+.search { position: relative; display: flex; align-items: center; flex: 1 1 auto; max-width: calc(var(--npc-space-64) * 5); }
 .search .icon { position: absolute; inset-inline-start: var(--npc-space-8); color: var(--npc-icon-color-subtle); pointer-events: none; }
-.search input { width: 200px; padding-inline-start: calc(var(--npc-space-8) * 2 + var(--npc-icon-size-dense)); }
+.search input { width: 100%; padding-inline-start: calc(var(--npc-space-8) * 2 + var(--npc-icon-size-dense)); }
 
 .button, .icon-button {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--npc-icon-gap);
-  min-height: var(--npc-control-button-height-dense);
+  min-height: var(--npc-toolbar-control-height);
   background: var(--npc-control-button-background);
   color: var(--npc-control-button-color);
   border: var(--npc-control-border-width) solid var(--npc-control-border-color);
@@ -89,7 +114,7 @@ input::placeholder { color: var(--npc-control-input-placeholder-color); }
   cursor: pointer;
 }
 .button { padding: 0 var(--npc-control-button-padding-inline); }
-.icon-button { width: var(--npc-control-button-height-dense); padding: 0; border-color: transparent; }
+.icon-button { width: var(--npc-toolbar-control-height); padding: 0; border-color: transparent; }
 .button:hover, .icon-button:hover { background: var(--npc-control-button-hover-background); }
 .button[aria-expanded="true"] { background: var(--npc-control-button-pressed-background); }
 :is(select, input, .button, .icon-button, a):focus-visible {
@@ -97,101 +122,105 @@ input::placeholder { color: var(--npc-control-input-placeholder-color); }
   outline-offset: var(--npc-control-focus-offset);
 }
 
+/* Active alerts: the nav count's figure style. Chrome never uses Signal, so no filled pill. */
 .count {
-  min-width: var(--npc-space-20); padding: 0 var(--npc-space-4);
-  border-radius: var(--npc-radius-full);
-  background: var(--npc-color-action-primary-fill); color: var(--npc-color-action-primary-on-fill);
-  font-size: var(--npc-type-caption-font-size); line-height: var(--npc-space-20); text-align: center;
+  color: var(--npc-nav-count-color);
+  font-weight: var(--npc-nav-count-font-weight);
+  font-variant-numeric: tabular-nums;
 }
 
-.fresh {
-  display: flex; align-items: center; gap: var(--npc-space-8);
-  margin-inline-start: auto; white-space: nowrap;
-  color: var(--npc-color-text-subtle);
-  font-size: var(--npc-type-caption-font-size);
-}
-.fresh::before {
-  content: ""; width: var(--npc-space-8); height: var(--npc-space-8); border-radius: var(--npc-radius-full);
-  background: var(--npc-color-status-positive-mark);
-}
-.fresh.stale { color: var(--npc-color-status-risk-text); }
-.fresh.stale::before { background: var(--npc-color-status-risk-mark); }
+/* ---------------------------------------------------------------- content and inspector */
 
-/* ---------------------------------------------------------------- map */
-
-main { position: relative; min-height: 0; }
+/* The inspector sits beside the map and the map resizes, so nothing is covered. */
+.content { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
+.view { position: relative; min-width: 0; min-height: 0; }
 #map { position: absolute; inset: 0; }
+
+.inspector {
+  position: relative; width: var(--npc-inspector-width); min-height: 0; overflow-y: auto;
+  padding: var(--npc-inspector-padding);
+  background: var(--npc-inspector-background);
+  border-inline-start: var(--npc-inspector-border-width) solid var(--npc-inspector-border-color);
+}
+.inspector[hidden] { display: none; }
+.close { position: sticky; top: 0; float: inline-end; }
+.inspector h2 {
+  margin: 0; padding-inline-end: var(--npc-space-40);
+  color: var(--npc-inspector-title-color);
+  font: var(--npc-inspector-title-typography-font-weight) var(--npc-inspector-title-typography-font-size)/var(--npc-inspector-title-typography-line-height) var(--npc-inspector-title-typography-font-family);
+}
+.inspector .meta {
+  margin: var(--npc-inspector-subtitle-space-before) 0 0;
+  color: var(--npc-inspector-subtitle-color);
+  font: var(--npc-inspector-subtitle-typography-font-weight) var(--npc-inspector-subtitle-typography-font-size)/var(--npc-inspector-subtitle-typography-line-height) var(--npc-inspector-subtitle-typography-font-family);
+}
+.inspector .section {
+  margin: var(--npc-inspector-section-label-space-before) 0 var(--npc-inspector-section-label-space-after);
+  color: var(--npc-inspector-section-label-color);
+  font: var(--npc-inspector-section-label-typography-font-weight) var(--npc-inspector-section-label-typography-font-size)/var(--npc-inspector-section-label-typography-line-height) var(--npc-inspector-section-label-typography-font-family);
+  letter-spacing: var(--npc-inspector-section-label-typography-letter-spacing);
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- legend (overlay) */
 
 .legend {
   position: absolute; inset-inline-start: var(--npc-space-12); bottom: var(--npc-space-12); z-index: 1;
-  display: flex; flex-wrap: wrap; gap: var(--npc-space-12);
-  padding: var(--npc-space-8) var(--npc-space-12);
-  background: var(--npc-color-surface-raised);
-  border-radius: var(--npc-radius-control);
-  box-shadow: var(--npc-elevation-overlay);
-  font-size: var(--npc-type-caption-font-size);
+  max-width: min(calc(100% - 2 * var(--npc-space-12)), calc(var(--npc-space-64) * 5.5));
+  padding: var(--npc-legend-overlay-padding-block) var(--npc-legend-overlay-padding-inline);
+  background: var(--npc-legend-overlay-background);
+  border: var(--npc-legend-overlay-border-width) solid var(--npc-legend-overlay-border-color);
+  border-radius: var(--npc-legend-overlay-radius);
+  box-shadow: var(--npc-legend-overlay-shadow);
+  color: var(--npc-legend-color);
+  font: var(--npc-legend-typography-font-weight) var(--npc-legend-typography-font-size)/var(--npc-legend-typography-line-height) var(--npc-legend-typography-font-family);
 }
-.legend span { display: inline-flex; align-items: center; gap: var(--npc-space-4); }
-.dot {
-  display: inline-block; width: var(--app-legend-swatch); height: var(--app-legend-swatch);
-  border-radius: var(--npc-radius-full); border: var(--npc-border-width-3) solid;
+.legend summary { cursor: pointer; font-weight: var(--npc-font-weight-medium); }
+.legend[open] summary { margin-bottom: var(--npc-space-8); }
+.legend-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--npc-legend-item-gap) var(--npc-space-12); }
+.legend-group + .legend-group { margin-top: var(--npc-space-8); }
+.legend-title { min-width: var(--npc-space-64); color: var(--npc-color-text-subtle); }
+.legend span, .legend label { display: inline-flex; align-items: center; gap: var(--npc-legend-gap); }
+.legend label { cursor: pointer; }
+.legend input { min-height: 0; margin: 0; accent-color: var(--npc-color-text-default); }
+.legend i { flex: none; }
+.fill, .ring { width: var(--npc-legend-dot-size); height: var(--npc-legend-dot-size); border-radius: var(--npc-legend-dot-radius); }
+.fill.high-speed { background: var(--app-service-high-speed); }
+.fill.long-distance { background: var(--app-service-long-distance); }
+.fill.regional { background: var(--app-service-regional); }
+/* Cercanías trains take their line's colour: show a few Renfe line colours side by side (finding 3). */
+.fill.cercanias { background: conic-gradient(#E1001A 0 33%, #0062A6 0 66%, #00A04E 0); }
+/* Finding 15: the map shows delay as a ring around the service fill; the legend dot is filled. */
+.ring { border: var(--npc-border-width-2) solid; }
+.ring.positive { border-color: var(--npc-legend-dot-positive); }
+.ring.caution { border-color: var(--npc-legend-dot-caution); }
+.ring.risk { border-color: var(--npc-legend-dot-risk); }
+.ring.neutral { border-color: var(--npc-legend-dot-neutral); }
+.track { width: var(--npc-space-20); height: var(--npc-border-width-3); border-radius: var(--npc-radius-round); }
+.track.high-speed { background: var(--app-track-high-speed); }
+.track.conventional { background: var(--app-track-conventional); }
+.track.metre { background: repeating-linear-gradient(90deg, var(--app-track-metre) 0 var(--npc-space-4), transparent 0 calc(var(--npc-space-4) * 1.75)); }
+.track.other { height: var(--npc-border-width-hairline); background: var(--app-track-other); }
+.station {
+  width: var(--npc-legend-dot-size); height: var(--npc-legend-dot-size); border-radius: var(--npc-legend-dot-radius);
+  background: var(--npc-color-surface-raised); border: var(--npc-border-width-hairline) solid var(--npc-color-text-default);
 }
-.dot.positive { border-color: var(--npc-color-status-positive-mark); }
-.dot.caution { border-color: var(--npc-color-status-caution-mark); }
-.dot.risk { border-color: var(--npc-color-status-risk-mark); }
-.dot.none { border-color: var(--app-status-none); }
 
-/* ---------------------------------------------------------------- inspector panel */
-
-.panel {
-  position: absolute; top: var(--npc-space-12); inset-inline-end: var(--npc-space-12); bottom: var(--npc-space-12); z-index: 3;
-  width: var(--npc-inspector-width); max-width: calc(100% - 2 * var(--npc-space-12));
-  overflow-y: auto;
-  padding: var(--npc-inspector-padding);
-  background: var(--npc-inspector-background);
-  border: var(--npc-inspector-border-width) solid var(--npc-inspector-border-color);
-  border-radius: var(--npc-radius-control);
-  box-shadow: var(--npc-elevation-overlay);
-}
-.close { position: sticky; top: 0; float: inline-end; }
-.panel h2 {
-  margin: 0; padding-inline-end: var(--npc-space-40);
-  color: var(--npc-inspector-title-color);
-  font-family: var(--npc-inspector-title-typography-font-family);
-  font-size: var(--npc-inspector-title-typography-font-size);
-  font-weight: var(--npc-inspector-title-typography-font-weight);
-  line-height: var(--npc-inspector-title-typography-line-height);
-}
-.panel .meta {
-  margin: var(--npc-inspector-subtitle-space-before) 0 0;
-  color: var(--npc-inspector-subtitle-color);
-  font-size: var(--npc-inspector-subtitle-typography-font-size);
-  line-height: var(--npc-inspector-subtitle-typography-line-height);
-}
-.panel .section {
-  margin: var(--npc-inspector-section-label-space-before) 0 var(--npc-inspector-section-label-space-after);
-  color: var(--npc-inspector-section-label-color);
-  font-family: var(--npc-inspector-section-label-typography-font-family);
-  font-size: var(--npc-inspector-section-label-typography-font-size);
-  font-weight: var(--npc-inspector-section-label-typography-font-weight);
-  letter-spacing: var(--npc-inspector-section-label-typography-letter-spacing);
-  line-height: var(--npc-inspector-section-label-typography-line-height);
-  text-transform: uppercase;
-}
+/* ---------------------------------------------------------------- inspector content */
 
 /* Renfe line badge: the line's own color is operator data, not app chrome (finding 3). */
 .badge {
   display: inline-block; padding: 0 var(--npc-space-4); margin-inline-end: var(--npc-space-8);
   border-radius: var(--npc-radius-control);
   font-size: var(--npc-type-caption-font-size); font-weight: var(--npc-font-weight-bold);
-  line-height: var(--npc-space-20); vertical-align: 1px;
+  line-height: var(--npc-space-20); vertical-align: 0.1em;
 }
 
 .delay { font-weight: var(--npc-font-weight-medium); }
 .delay.positive { color: var(--npc-color-status-positive-text); }
 .delay.caution { color: var(--npc-color-status-caution-text); }
 .delay.risk { color: var(--npc-color-status-risk-text); }
-.delay.none { color: var(--npc-color-text-subtle); }
+.delay.none { color: var(--npc-color-status-neutral-text); }
 
 .stops { list-style: none; margin: 0; padding: 0; }
 .stops li {
@@ -203,10 +232,10 @@ main { position: relative; min-height: 0; }
 .stops li.passed, .stops li.passed a { color: var(--npc-color-text-subtle); }
 .stops li .pin {
   width: var(--npc-space-8); height: var(--npc-space-8); justify-self: center;
-  border-radius: var(--npc-radius-full); border: var(--npc-border-width-2) solid var(--npc-color-border-ui);
+  border-radius: var(--npc-radius-round); border: var(--npc-border-width-2) solid var(--npc-color-border-ui);
 }
 .stops li.current { font-weight: var(--npc-font-weight-medium); }
-.stops li.current .pin { background: var(--npc-color-action-primary-fill); border-color: var(--npc-color-action-primary-fill); }
+.stops li.current .pin { background: var(--npc-color-text-default); border-color: var(--npc-color-text-default); }
 
 .t { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .t s { color: var(--npc-color-text-subtle); font-weight: var(--npc-font-weight-regular); margin-inline-end: var(--npc-space-4); }
@@ -223,33 +252,72 @@ main { position: relative; min-height: 0; }
 .board td:last-child { padding-inline-end: 0; }
 .board .live::after { content: " ●"; color: var(--npc-color-status-positive-mark); font-size: var(--npc-type-caption-font-size); }
 
+/* Alerts are notices: an info rule at the start, the affected lines, then the text. */
 .alert {
-  padding: var(--npc-space-12) 0;
-  border-bottom: var(--npc-table-row-border-width) solid var(--npc-table-row-border-color);
+  display: grid; gap: var(--npc-space-4);
+  margin-top: var(--npc-space-8);
+  padding: var(--npc-notice-padding-block) var(--npc-notice-padding-inline);
+  background: var(--npc-notice-background); color: var(--npc-notice-color);
+  border-inline-start: var(--npc-notice-indicator-width) solid var(--npc-notice-indicator-info);
+  font: var(--npc-notice-typography-font-weight) var(--npc-notice-typography-font-size)/var(--npc-notice-typography-line-height) var(--npc-notice-typography-font-family);
 }
-.alert .lines { color: var(--npc-color-status-info-text); font-size: var(--npc-type-caption-font-size); margin-bottom: var(--npc-space-4); }
+.alert .lines { color: var(--npc-notice-icon-info); font-weight: var(--npc-font-weight-medium); }
 .empty { color: var(--npc-empty-body-color); }
 
-/* ---------------------------------------------------------------- footer */
-
-.attrib {
-  padding: var(--npc-space-4) var(--npc-space-16);
-  background: var(--npc-color-surface-page);
-  border-top: var(--npc-border-width-hairline) solid var(--npc-color-border-hairline);
-  color: var(--npc-color-text-subtle);
-  font-size: var(--npc-type-caption-font-size);
+/* Open data panel */
+.inspector .meta a, .source a, .more a { color: var(--npc-control-link-color); text-underline-offset: var(--npc-control-link-underline-offset); }
+.counts, .more { list-style: none; margin: 0; padding: 0; }
+.counts li { display: flex; align-items: center; min-height: var(--npc-table-row-height); font-size: var(--npc-table-row-typography-font-size); }
+.counts .badge { min-width: var(--npc-space-40); text-align: center; font-variant-numeric: tabular-nums; }
+.source {
+  padding: var(--npc-space-12) 0;
+  border-bottom: var(--npc-table-row-border-width) solid var(--npc-table-row-border-color);
+  font-size: var(--npc-table-row-typography-font-size);
 }
-.attrib a { color: inherit; text-underline-offset: var(--npc-control-link-underline-offset); }
+.source h3 { margin: 0; font-size: var(--npc-type-body-font-size); font-weight: var(--npc-font-weight-medium); line-height: var(--npc-type-body-line-height); }
+.source p { margin: var(--npc-space-4) 0 0; }
+.source-meta, .source-note { color: var(--npc-color-text-subtle); font-size: var(--npc-type-caption-font-size); }
+.source-live { color: var(--npc-color-status-info-text); font-size: var(--npc-type-caption-font-size); }
+.source-live:empty { display: none; }
+.more li { padding: var(--npc-space-4) 0; font-size: var(--npc-table-row-typography-font-size); }
+
+/* ---------------------------------------------------------------- status bar */
+
+.status-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--npc-status-bar-gap);
+  min-height: var(--npc-status-bar-height); padding: var(--npc-space-4) var(--npc-status-bar-padding-inline);
+  background: var(--npc-status-bar-background); color: var(--npc-status-bar-color);
+  border-top: var(--npc-status-bar-border-width) solid var(--npc-status-bar-border-color);
+  font: var(--npc-status-bar-typography-font-weight) var(--npc-status-bar-typography-font-size)/var(--npc-status-bar-typography-line-height) var(--npc-status-bar-typography-font-family);
+}
+.status-bar a { color: inherit; text-underline-offset: var(--npc-control-link-underline-offset); }
+.status-bar .sep { color: var(--npc-status-bar-separator-color); }
+.status-bar .end { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
+.status-bar .end.stale { color: var(--npc-color-status-risk-text); }
 
 .maplibregl-ctrl-attrib, .maplibregl-ctrl-group { font-family: var(--npc-font-family-sans); }
 
-@media (max-width: 600px) {
-  .brand .sub { display: none; }
-  .search input { width: 150px; }
-  .fresh { order: 10; width: 100%; margin-inline-start: 0; }
-  .panel {
-    top: auto; inset-inline: 0; bottom: 0; width: 100%; max-width: none; max-height: 55%;
-    border-radius: 0; border-width: var(--npc-inspector-border-width) 0 0;
+/* ---------------------------------------------------------------- narrow frames
+   Brokkr breakpoints, typed one pixel under the token: 1023 (lg) and 599 (md). */
+
+@media (max-width: 1023px) {
+  /* The inspector moves below the map. */
+  .content { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .inspector {
+    width: auto; max-height: 50vh;
+    border-inline-start: 0; border-top: var(--npc-inspector-border-width) solid var(--npc-inspector-border-color);
   }
-  .legend { bottom: var(--npc-space-40); inset-inline-start: var(--npc-space-8); }
+}
+@media (max-width: 599px) {
+  .context { display: none; }
+  .home { margin-inline-end: auto; }
+  .toolbar .group:first-child { flex: 1 1 100%; }
+  .toolbar .group.grow { flex: 1 1 0; min-width: 0; }
+  .toolbar .group:first-child .field { flex: 1 1 0; min-width: 0; }
+  .toolbar select { width: 100%; }
+  .toolbar .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .search { max-width: none; }
+  /* Clear MapLibre's two-line attribution. */
+  .legend { bottom: var(--npc-space-64); }
+  .status-bar > :not(.end):not(:first-child) { display: none; }
 }

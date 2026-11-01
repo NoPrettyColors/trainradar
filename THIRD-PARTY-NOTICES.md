@@ -2,7 +2,7 @@
 
 ## Tabler Icons
 
-`web/icons/sprite.svg` contains outline icons from [Tabler Icons](https://tabler.io/icons) 3.24.0, renamed to Brokkr's `npc-icon-*` ids.
+`web/icons/sprite.svg` contains outline icons from [Tabler Icons](https://tabler.io/icons) 3.24.0, renamed to Brokkr's `npc-icon-*` ids (Brokkr 1.1.0 sprite).
 
 ```
 MIT License
@@ -34,8 +34,12 @@ SOFTWARE.
 |---|---|---|
 | MapLibre GL JS 4.7.1 | unpkg.com | BSD-3-Clause |
 | Basemap styles and tiles | OpenFreeMap | Map data © OpenStreetMap contributors (ODbL) |
-| Brokkr 1.0.3 stylesheet and Noto Sans | brokkr.noprettycolors.com | Brokkr: © NoPrettyColors; Noto Sans: SIL OFL 1.1 |
+| Brokkr 1.1.0 stylesheet and Noto Sans | brokkr.noprettycolors.com | Brokkr: © NoPrettyColors; Noto Sans: SIL OFL 1.1 |
+| NoPrettyColors logos (`logo_NPC_Charcoal.svg`, `logo_NPC_Chalk.svg`, `logo_NPC_Avatar.svg` as favicon) | brokkr.noprettycolors.com | © NoPrettyColors. A trademark, not covered by this repository's MIT licence: forks must remove or replace it. |
 
 ## Data
 
-Train positions, delays, alerts and timetables come from Renfe's open data portal ([data.renfe.com](https://data.renfe.com)). Check Renfe's terms before reusing the data.
+All data is downloaded at runtime and never stored in this repository.
+
+- **Renfe** ([data.renfe.com](https://data.renfe.com)), CC BY 4.0: train positions, delays, alerts, timetables and stations for Cercanías/Rodalies and for high-speed, long and medium distance services.
+- **Instituto Geográfico Nacional** ([api-features.idee.es](https://api-features.idee.es/collections/railwaylink)), CC BY 4.0: the rail network (INSPIRE transport networks, railway links). © Instituto Geográfico Nacional.

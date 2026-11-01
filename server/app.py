@@ -18,7 +18,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import static_gtfs
+from . import sources, static_gtfs
+from .network import Network
 from .realtime import LiveState
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,18 +31,32 @@ log = logging.getLogger("trainradar")
 
 
 class Static:
-    """Holds the current StaticGTFS and reloads it when the service day changes."""
+    """Holds both static feeds and reloads them when the service day changes."""
 
     def __init__(self):
-        self.g = static_gtfs.load(DATA)
+        self.feeds = {k: static_gtfs.load(DATA, k) for k in static_gtfs.FEEDS}
         self._cache: dict[str, bytes] = {}
         self._build_cache()
 
     def __call__(self) -> static_gtfs.StaticGTFS:
-        return self.g
+        return self.feeds["cercanias"]
+
+    @property
+    def service_date(self):
+        return self().service_date
+
+    def trip(self, trip_id: str):
+        for g in self.feeds.values():
+            if trip_id in g.trips:
+                return g, g.trips[trip_id]
+        return None, None
+
+    def stop(self, stop_id: str) -> dict | None:
+        # Both feeds use Adif station codes; the long-distance feed has the full station names.
+        return self.feeds["ld"].stops.get(stop_id) or self.feeds["cercanias"].stops.get(stop_id)
 
     def _build_cache(self) -> None:
-        g = self.g
+        g = self()
         bboxes: dict[str, list[float]] = {}
         for f in g.shapes_geojson["features"]:
             n = f["properties"]["nucleo"]
@@ -49,9 +64,21 @@ class Static:
             for x, y in f["geometry"]["coordinates"]:
                 b[0], b[1], b[2], b[3] = min(b[0], x), min(b[1], y), max(b[2], x), max(b[3], y)
         nucleos = [{"name": n, "bbox": bboxes[n]} for n in static_gtfs.NUCLEOS.values() if n in bboxes]
+        # One point per station; "kind" says which services call there: cercanias, ld or both.
+        stations: dict[str, dict] = {}
+        for k, feed in self.feeds.items():
+            for f in feed.stops_geojson["features"]:
+                p = f["properties"]
+                if p["id"] in stations:
+                    stations[p["id"]]["properties"]["kind"] = "both"
+                    if k == "ld":
+                        stations[p["id"]]["properties"]["name"] = p["name"]
+                else:
+                    stations[p["id"]] = {**f, "properties": dict(p)}
+        stops = {"type": "FeatureCollection", "features": list(stations.values())}
         self._cache = {
             "shapes": gzip.compress(json.dumps(g.shapes_geojson, separators=(",", ":")).encode()),
-            "stops": gzip.compress(json.dumps(g.stops_geojson, ensure_ascii=False, separators=(",", ":")).encode()),
+            "stops": gzip.compress(json.dumps(stops, ensure_ascii=False, separators=(",", ":")).encode()),
             "nucleos": gzip.compress(json.dumps(nucleos, ensure_ascii=False).encode()),
         }
 
@@ -62,12 +89,12 @@ class Static:
         def loop():
             while True:
                 time.sleep(600)
-                if datetime.now(static_gtfs.TZ).date() != self.g.service_date and datetime.now(static_gtfs.TZ).hour >= 3:
+                if datetime.now(static_gtfs.TZ).date() != self.service_date and datetime.now(static_gtfs.TZ).hour >= 3:
                     try:
                         new = Static.__new__(Static)
-                        new.g = static_gtfs.load(DATA)
+                        new.feeds = {k: static_gtfs.load(DATA, k) for k in static_gtfs.FEEDS}
                         new._build_cache()
-                        self.g, self._cache = new.g, new._cache
+                        self.feeds, self._cache = new.feeds, new._cache
                     except Exception:
                         log.exception("Static GTFS reload failed; keeping previous day")
         threading.Thread(target=loop, name="gtfs-reload", daemon=True).start()
@@ -75,11 +102,11 @@ class Static:
 
 STATIC: Static
 LIVE: LiveState
+NETWORK: Network
 
 
 def trip_detail(trip_id: str) -> dict | None:
-    g = STATIC()
-    trip = g.trips.get(trip_id)
+    g, trip = STATIC.trip(trip_id)
     if not trip:
         return None
     route = g.routes.get(trip["route_id"], {})
@@ -91,7 +118,7 @@ def trip_detail(trip_id: str) -> dict | None:
     current = next((i for i, (s, _, _) in enumerate(rows) if train and s == train["stop_id"]), None)
     stops = []
     for i, (sid, arr, dep) in enumerate(rows):
-        s = g.stops.get(sid, {})
+        s = STATIC.stop(sid) or {}
         passed = current is not None and i < current
         upcoming = not passed
         stops.append({
@@ -109,6 +136,7 @@ def trip_detail(trip_id: str) -> dict | None:
         "color": route.get("color", "#888"),
         "text_color": route.get("text", "#fff"),
         "nucleo": route.get("nucleo", ""),
+        "service": route.get("service", ""),
         "delay": delay,
         "train": train,
         "stops": stops,
@@ -116,8 +144,7 @@ def trip_detail(trip_id: str) -> dict | None:
 
 
 def stop_board(stop_id: str, window_min: int = 90, limit: int = 25) -> dict | None:
-    g = STATIC()
-    stop = g.stops.get(stop_id)
+    stop = STATIC.stop(stop_id)
     if not stop:
         return None
     now = int(time.time())
@@ -125,32 +152,34 @@ def stop_board(stop_id: str, window_min: int = 90, limit: int = 25) -> dict | No
         delays = dict(LIVE.delays)
         live_trips = {t["trip_id"] for t in LIVE.trains}
     out = []
-    for sched, tid in g.stop_index.get(stop_id, []):
-        if sched < now - 3600:
-            continue
-        if sched > now + window_min * 60:
-            break
-        d = delays.get(tid)
-        expected = sched + (d or 0)
-        if expected < now - 60:
-            continue
-        trip = g.trips[tid]
-        route = g.routes.get(trip["route_id"], {})
-        rows = g.stop_times.get(tid, [])
-        dest = g.stops.get(rows[-1][0], {}).get("name", "") if rows else ""
-        if rows and rows[-1][0] == stop_id:
-            continue  # terminating here: not a departure
-        out.append({
-            "trip_id": tid,
-            "line": route.get("short", ""),
-            "color": route.get("color", "#888"),
-            "text_color": route.get("text", "#fff"),
-            "destination": dest,
-            "scheduled": sched,
-            "expected": expected if d is not None else None,
-            "delay": d,
-            "live": tid in live_trips,
-        })
+    for g in STATIC.feeds.values():
+        for sched, tid in g.stop_index.get(stop_id, []):
+            if sched < now - 3600:
+                continue
+            if sched > now + window_min * 60:
+                break
+            d = delays.get(tid)
+            expected = sched + (d or 0)
+            if expected < now - 60:
+                continue
+            trip = g.trips[tid]
+            route = g.routes.get(trip["route_id"], {})
+            rows = g.stop_times.get(tid, [])
+            if rows and rows[-1][0] == stop_id:
+                continue  # terminating here: not a departure
+            dest = (STATIC.stop(rows[-1][0]) or {}).get("name", "") if rows else ""
+            out.append({
+                "trip_id": tid,
+                "line": route.get("short", ""),
+                "service": route.get("service", ""),
+                "color": route.get("color", "#888"),
+                "text_color": route.get("text", "#fff"),
+                "destination": dest,
+                "scheduled": sched,
+                "expected": expected if d is not None else None,
+                "delay": d,
+                "live": tid in live_trips,
+            })
     out.sort(key=lambda r: r["expected"] or r["scheduled"])
     return {"stop": stop, "departures": out[:limit]}
 
@@ -200,7 +229,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(alerts)
             if path == "/api/status":
                 return self._json(LIVE.status() | {"static_loaded_at": int(STATIC().loaded_at),
-                                                   "service_date": str(STATIC().service_date)})
+                                                   "service_date": str(STATIC.service_date),
+                                                   "network": bool(NETWORK.gz)})
+            if path == "/api/network":
+                if not NETWORK.gz:
+                    return self._json({"error": "rail network still downloading"}, 503)
+                return self._send(NETWORK.gz, "application/geo+json", gz=True, cache="public, max-age=86400")
+            if path == "/api/sources":
+                return self._json(sources_report())
             if path.startswith("/api/trip/"):
                 d = trip_detail(path[len("/api/trip/"):])
                 return self._json(d) if d else self._json({"error": "trip not found"}, 404)
@@ -241,9 +277,35 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
 
+def sources_report() -> dict:
+    """The data catalogue plus live numbers for each source."""
+    with LIVE.lock:
+        feeds = {k: dict(v) for k, v in LIVE.feed_status.items()}
+        by_service: dict[str, int] = {}
+        for t in LIVE.trains:
+            by_service[t["service"]] = by_service.get(t["service"], 0) + 1
+        n_alerts = len(LIVE.alerts)
+    used = []
+    for src in sources.USED:
+        live: dict = {}
+        if src["id"] in feeds:
+            f = feeds[src["id"]]
+            live = {"updated_at": f.get("updated_at"), "entities": f.get("entities"), "error": f.get("error")}
+            if src["id"] == "alerts":
+                live["active"] = n_alerts
+        elif src["id"].startswith("gtfs_"):
+            g = STATIC.feeds["cercanias" if src["id"] == "gtfs_cercanias" else "ld"]
+            live = {"updated_at": int(g.loaded_at), "stations": len(g.stop_index),
+                    "routes": len(g.routes), "trips_today": len(g.trips)}
+        elif src["id"] == "network":
+            live = NETWORK.stats | {"error": NETWORK.error}
+        used.append({**src, "live": live})
+    return {"used": used, "more": sources.MORE, "trains": by_service, "services": static_gtfs.SERVICE_NAMES}
+
+
 def main() -> None:
-    global STATIC, LIVE
-    ap = argparse.ArgumentParser(description="Live map of Renfe Cercanías trains")
+    global STATIC, LIVE, NETWORK
+    ap = argparse.ArgumentParser(description="Live map of Renfe trains in Spain")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -253,6 +315,8 @@ def main() -> None:
 
     STATIC = Static()
     STATIC.start_daily_reload()
+    NETWORK = Network(DATA)
+    NETWORK.start()
     LIVE = LiveState(STATIC)
     try:
         LIVE.poll()

@@ -1,8 +1,10 @@
-"""Renfe Cercanías static GTFS: download, cache and index.
+"""Renfe static GTFS feeds: download, cache and index.
 
-The feed is published daily as a zip of fixed-width-padded CSV files, so every
-field is stripped on read. stop_times.txt is ~290 MB; only rows for trips that
-run today (and yesterday's after-midnight tail) are kept in memory.
+Two feeds share one loader: Cercanías/Rodalies, and high-speed, long-distance
+and medium-distance (AV/LD/MD). Both are published daily as zips of
+fixed-width-padded CSV files, so every field is stripped on read. Cercanías
+stop_times.txt is ~290 MB; only rows for trips that run today (and yesterday's
+after-midnight tail) are kept in memory.
 """
 
 from __future__ import annotations
@@ -20,7 +22,10 @@ from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
 
-GTFS_URL = "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip"
+FEEDS = {
+    "cercanias": ("https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip", "cercanias_gtfs.zip"),
+    "ld": ("https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip", "ld_gtfs.zip"),
+}
 TZ = ZoneInfo("Europe/Madrid")
 MAX_AGE_S = 24 * 3600
 
@@ -44,6 +49,24 @@ NUCLEOS = {
 }
 
 
+# AV/LD/MD products (route_short_name) grouped into the services the map shows.
+LD_SERVICES = {
+    "high-speed": {"AVE", "AVE INT", "AVLO", "AVANT", "AVANT EXP", "EUROMED"},
+    "long-distance": {"ALVIA", "INTERCITY", "TRENCELTA", "TRENHOTEL"},
+}
+SERVICE_NAMES = {
+    "cercanias": "Cercanías / Rodalies",
+    "high-speed": "High speed",
+    "long-distance": "Long distance",
+    "regional": "Regional / medium distance",
+}
+
+
+def ld_service(product: str) -> str:
+    p = product.upper()
+    return next((s for s, names in LD_SERVICES.items() if p in names), "regional")
+
+
 def _rows(zf: zipfile.ZipFile, name: str):
     with zf.open(name) as raw:
         reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8-sig", newline=""))
@@ -60,6 +83,7 @@ def gtfs_seconds(hms: str) -> int:
 
 @dataclass
 class StaticGTFS:
+    kind: str = "cercanias"
     loaded_at: float = 0.0
     service_date: date | None = None
     stops: dict[str, dict] = field(default_factory=dict)
@@ -75,13 +99,15 @@ class StaticGTFS:
     stops_geojson: dict = field(default_factory=dict)
 
     def nucleo_of(self, route_id: str) -> str:
+        if self.kind != "cercanias":
+            return ""
         return NUCLEOS.get(route_id[:2], route_id[:2])
 
 
-def _download(dest: Path) -> None:
-    log.info("Downloading static GTFS from %s", GTFS_URL)
+def _download(url: str, dest: Path) -> None:
+    log.info("Downloading static GTFS from %s", url)
     tmp = dest.with_suffix(".part")
-    req = urllib.request.Request(GTFS_URL, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)"})
+    req = urllib.request.Request(url, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)"})
     with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
         while chunk := r.read(1 << 20):
             f.write(chunk)
@@ -109,19 +135,20 @@ def _midnight(day: date) -> int:
     return int(noon.timestamp()) - 12 * 3600
 
 
-def load(data_dir: Path) -> StaticGTFS:
+def load(data_dir: Path, kind: str = "cercanias") -> StaticGTFS:
     data_dir.mkdir(parents=True, exist_ok=True)
-    zpath = data_dir / "cercanias_gtfs.zip"
+    url, fname = FEEDS[kind]
+    zpath = data_dir / fname
     if not zpath.exists() or time.time() - zpath.stat().st_mtime > MAX_AGE_S:
         try:
-            _download(zpath)
+            _download(url, zpath)
         except Exception:
             if not zpath.exists():
                 raise
             log.exception("GTFS download failed; using cached copy")
 
     t0 = time.time()
-    g = StaticGTFS(loaded_at=time.time())
+    g = StaticGTFS(kind=kind, loaded_at=time.time())
     today = datetime.now(TZ).date()
     yesterday = today - timedelta(days=1)
     g.service_date = today
@@ -135,14 +162,19 @@ def load(data_dir: Path) -> StaticGTFS:
                 "lon": float(r["stop_lon"]),
             }
         for r in _rows(zf, "routes.txt"):
-            g.routes[r["route_id"]] = {
+            route = {
                 "id": r["route_id"],
                 "short": r["route_short_name"],
                 "long": " ".join(r["route_long_name"].split()),
                 "color": "#" + (r.get("route_color") or "888888"),
                 "text": "#" + (r.get("route_text_color") or "FFFFFF"),
                 "nucleo": g.nucleo_of(r["route_id"]),
+                "service": "cercanias" if kind == "cercanias" else ld_service(r["route_short_name"]),
             }
+            if kind != "cercanias":
+                # The AV/LD/MD feed gives every route the same off-white; the client colours by service.
+                route["color"] = route["text"] = ""
+            g.routes[r["route_id"]] = route
 
         svc_today = _active_services(zf, today)
         svc_yday = _active_services(zf, yesterday)
@@ -185,7 +217,7 @@ def load(data_dir: Path) -> StaticGTFS:
             lst.sort()
 
         shapes: dict[str, list[tuple[int, float, float]]] = {}
-        for r in _rows(zf, "shapes.txt"):
+        for r in (_rows(zf, "shapes.txt") if "shapes.txt" in zf.namelist() else ()):
             shapes.setdefault(r["shape_id"], []).append(
                 (int(r["shape_pt_sequence"]), round(float(r["shape_pt_lon"]), 5), round(float(r["shape_pt_lat"]), 5))
             )
@@ -206,7 +238,7 @@ def load(data_dir: Path) -> StaticGTFS:
         "features": [
             {
                 "type": "Feature",
-                "properties": {"id": s["id"], "name": s["name"]},
+                "properties": {"id": s["id"], "name": s["name"], "kind": kind},
                 "geometry": {"type": "Point", "coordinates": [s["lon"], s["lat"]]},
             }
             for s in g.stops.values()
@@ -214,7 +246,7 @@ def load(data_dir: Path) -> StaticGTFS:
         ],
     }
     log.info(
-        "Static GTFS loaded in %.1fs: %d stops, %d active trips, %d shapes",
-        time.time() - t0, len(g.stops), len(g.trips), len(g.shapes_geojson["features"]),
+        "Static GTFS (%s) loaded in %.1fs: %d stops, %d active trips, %d shapes",
+        kind, time.time() - t0, len(g.stops), len(g.trips), len(g.shapes_geojson["features"]),
     )
     return g

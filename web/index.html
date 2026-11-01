@@ -4,52 +4,105 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TrainRadar</title>
-  <meta name="description" content="Live map of Renfe Cercanías and Rodalies trains from Renfe open data">
-  <!-- Apply a saved theme choice before first paint so the page does not flash. -->
-  <script>try { const t = localStorage.getItem("trainradar-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+  <meta name="description" content="Live map of Renfe trains in Spain, high speed to Cercanías, and the open data behind it">
+  <link rel="icon" href="https://brokkr.noprettycolors.com/logos/logo_NPC_Avatar.svg" type="image/svg+xml">
+  <!-- Apply a saved theme choice, and touch density on touch screens, before first paint. -->
+  <script>
+    try { const t = localStorage.getItem("trainradar-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+    if (matchMedia("(pointer: coarse)").matches) document.documentElement.dataset.density = "touch";
+  </script>
   <link rel="preload" href="https://brokkr.noprettycolors.com/fonts/noto-sans/2.015/NotoSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="https://brokkr.noprettycolors.com/v/1.0.3/brokkr.css">
+  <link rel="stylesheet" href="https://brokkr.noprettycolors.com/v/1.1.0/brokkr.css">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="bar">
-    <h1 class="brand">TrainRadar <span class="sub">Cercanías · Rodalies</span></h1>
-    <label class="field">
-      <span class="sr">Network</span>
-      <select id="nucleo"><option value="">All of Spain</option></select>
-    </label>
-    <label class="field">
-      <span class="sr">Line</span>
-      <select id="line"><option value="">All lines</option></select>
-    </label>
-    <label class="field search">
-      <span class="sr">Find a train or station</span>
-      <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-search"></use></svg>
-      <input id="search" type="search" placeholder="Train no. or station" autocomplete="off" list="search-list">
-      <datalist id="search-list"></datalist>
-    </label>
-    <button id="alerts-btn" class="button" type="button" aria-expanded="false">
-      <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-notification"></use></svg>
-      Alerts <span id="alerts-count" class="count">0</span>
-    </button>
-    <div id="fresh" class="fresh" role="status" aria-live="polite">Connecting…</div>
+  <!-- Brokkr app shell: header, toolbar, content with the inspector beside it, status bar. -->
+  <header class="shell-header">
+    <a class="home" href="/" title="TrainRadar home">
+      <img class="logo-charcoal" src="https://brokkr.noprettycolors.com/logos/logo_NPC_Charcoal.svg" alt="NoPrettyColors" width="28" height="20">
+      <img class="logo-chalk" src="https://brokkr.noprettycolors.com/logos/logo_NPC_Chalk.svg" alt="NoPrettyColors" width="28" height="20">
+      <span class="app-name">TrainRadar</span>
+    </a>
+    <span class="context">Spain's trains from open data</span>
     <button id="theme-btn" class="icon-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
       <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-dark"></use></svg>
     </button>
   </header>
 
-  <main>
-    <div id="map" aria-label="Train map"></div>
+  <div class="toolbar" role="toolbar" aria-label="Filters and views">
+    <div class="group">
+      <label class="field">
+        <span class="sr">Service</span>
+        <select id="service">
+          <option value="">All services</option>
+          <option value="high-speed">High speed</option>
+          <option value="long-distance">Long distance</option>
+          <option value="regional">Regional / medium distance</option>
+          <option value="cercanias">Cercanías / Rodalies</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="sr">Cercanías network</span>
+        <select id="nucleo"><option value="">All of Spain</option></select>
+      </label>
+      <label class="field">
+        <span class="sr">Line</span>
+        <select id="line"><option value="">All lines</option></select>
+      </label>
+    </div>
+    <div class="group grow">
+      <label class="field search">
+        <span class="sr">Find a train or station</span>
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-search"></use></svg>
+        <input id="search" type="search" placeholder="Train no. or station" autocomplete="off" list="search-list">
+        <datalist id="search-list"></datalist>
+      </label>
+    </div>
+    <div class="group">
+      <button id="data-btn" class="button" type="button" aria-expanded="false">
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-info"></use></svg>
+        <span class="label">Open data</span>
+      </button>
+      <button id="alerts-btn" class="button" type="button" aria-expanded="false">
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-notification"></use></svg>
+        <span class="label">Alerts</span> <span id="alerts-count" class="count">0</span>
+      </button>
+    </div>
+  </div>
 
-    <div class="legend" aria-hidden="true">
-      <span><i class="dot positive"></i>On time</span>
-      <span><i class="dot caution"></i>1–5 min late</span>
-      <span><i class="dot risk"></i>&gt;5 min late</span>
-      <span><i class="dot none"></i>No data</span>
+  <main class="content">
+    <div class="view">
+      <div id="map" aria-label="Train map"></div>
+
+      <details id="legend" class="legend" open>
+        <summary>Legend and layers</summary>
+        <div class="legend-group" aria-hidden="true">
+          <span class="legend-title">Trains</span>
+          <span><i class="fill high-speed"></i>High speed</span>
+          <span><i class="fill long-distance"></i>Long distance</span>
+          <span><i class="fill regional"></i>Regional</span>
+          <span><i class="fill cercanias"></i>Cercanías, in line colour</span>
+        </div>
+        <div class="legend-group" aria-hidden="true">
+          <span class="legend-title">Delay ring</span>
+          <span><i class="ring positive"></i>On time</span>
+          <span><i class="ring caution"></i>1–5 min late</span>
+          <span><i class="ring risk"></i>Over 5 min late</span>
+          <span><i class="ring neutral"></i>No live data</span>
+        </div>
+        <div class="legend-group">
+          <span class="legend-title">Show</span>
+          <label title="Standard gauge, 1,435 mm"><input type="checkbox" id="show-hs" checked><i class="track high-speed"></i>High-speed lines</label>
+          <label title="Iberian gauge, 1,668 mm"><input type="checkbox" id="show-conventional" checked><i class="track conventional"></i>Conventional lines</label>
+          <label title="Metre gauge: FEVE and regional lines"><input type="checkbox" id="show-metre" checked><i class="track metre"></i>Metre gauge</label>
+          <label title="Track IGN publishes without a gauge: mostly sidings and yards"><input type="checkbox" id="show-other"><i class="track other"></i>Other track</label>
+          <label><input type="checkbox" id="show-stations" checked><i class="station"></i>Stations</label>
+        </div>
+      </details>
     </div>
 
-    <aside id="panel" class="panel" hidden>
+    <aside id="panel" class="inspector" hidden>
       <button id="panel-close" class="icon-button close" type="button" aria-label="Close" title="Close">
         <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-close"></use></svg>
       </button>
@@ -57,8 +110,13 @@
     </aside>
   </main>
 
-  <footer class="attrib">
-    Data: <a href="https://data.renfe.com" target="_blank" rel="noopener">Renfe Open Data</a> (GTFS / GTFS‑RT) · positions are approximate
+  <footer class="status-bar">
+    <span>Data: <a href="https://data.renfe.com" target="_blank" rel="noopener">Renfe</a>, <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a>, CC BY 4.0</span>
+    <span class="sep" aria-hidden="true">|</span>
+    <span>Positions are approximate</span>
+    <span class="sep" aria-hidden="true">|</span>
+    <a href="https://github.com/NoPrettyColors/trainradar" target="_blank" rel="noopener">Source code</a>
+    <span id="fresh" class="end" role="status" aria-live="polite">Connecting…</span>
   </footer>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>

@@ -1,4 +1,8 @@
-"""Poll Renfe's Cercanías GTFS-Realtime JSON feeds and keep a live snapshot."""
+"""Poll Renfe's GTFS-Realtime JSON feeds and keep a live snapshot.
+
+Two families of feeds are merged: Cercanías/Rodalies, and high-speed,
+long-distance and medium-distance (AV/LD/MD).
+"""
 
 from __future__ import annotations
 
@@ -7,6 +11,7 @@ import logging
 import threading
 import time
 import urllib.request
+from email.utils import parsedate_to_datetime
 
 from .static_gtfs import StaticGTFS
 
@@ -15,6 +20,8 @@ log = logging.getLogger(__name__)
 FEEDS = {
     "vehicles": "https://gtfsrt.renfe.com/vehicle_positions.json",
     "trips": "https://gtfsrt.renfe.com/trip_updates.json",
+    "vehicles_ld": "https://gtfsrt.renfe.com/vehicle_positions_LD.json",
+    "trips_ld": "https://gtfsrt.renfe.com/trip_updates_LD.json",
     "alerts": "https://gtfsrt.renfe.com/alerts.json",
 }
 POLL_S = 20
@@ -22,24 +29,53 @@ ALERTS_POLL_S = 120
 STALE_S = 180
 
 
-def _fetch(url: str) -> dict:
+def _fetch(url: str) -> tuple[dict, int]:
+    """Return the feed and when the server last changed it.
+
+    The AV/LD/MD vehicle feed's header timestamp runs an hour behind, so the
+    HTTP Last-Modified header is the more reliable freshness signal.
+    """
     req = urllib.request.Request(url, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)", "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=20) as r:
-        return json.load(r)
+        data = json.load(r)
+        lm = r.headers.get("Last-Modified")
+    try:
+        modified = int(parsedate_to_datetime(lm).timestamp()) if lm else 0
+    except (TypeError, ValueError):
+        modified = 0
+    return data, modified or int((data.get("header") or {}).get("timestamp") or 0)
+
+
+def _delays(feed: dict) -> dict[str, int]:
+    delays: dict[str, int] = {}
+    for ent in feed.get("entity", []):
+        t = ent.get("tripUpdate") or {}
+        tid = (t.get("trip") or {}).get("tripId")
+        if not tid:
+            continue
+        d = t.get("delay")
+        if d is None:
+            stus = t.get("stopTimeUpdate") or []
+            if stus:
+                d = (stus[0].get("arrival") or stus[0].get("departure") or {}).get("delay")
+        if d is not None:
+            delays[tid] = int(d)
+    return delays
 
 
 class LiveState:
     def __init__(self, static_provider):
-        self._static = static_provider  # callable -> StaticGTFS (may be reloaded daily)
+        self._static = static_provider  # .feeds -> {"cercanias": StaticGTFS, "ld": StaticGTFS}, reloaded daily
         self.lock = threading.Lock()
         self.cond = threading.Condition(self.lock)
         self.version = 0
         self.trains: list[dict] = []
         self.delays: dict[str, int] = {}  # trip_id -> delay seconds
         self.alerts: list[dict] = []
-        self.feed_ts = 0  # vehicle feed header timestamp
+        self.feed_ts = 0  # newest vehicle feed update
         self.fetched_at = 0.0
         self.last_error: str | None = None
+        self.feed_status: dict[str, dict] = {k: {"url": u} for k, u in FEEDS.items()}
         self._snapshot_json = b"[]"
 
     # ---- polling -----------------------------------------------------------
@@ -61,26 +97,50 @@ class LiveState:
                 log.warning("Realtime poll failed: %s", self.last_error)
             time.sleep(POLL_S)
 
+    def _get(self, name: str) -> tuple[dict, int] | None:
+        """Fetch one feed, recording its health; a failing feed doesn't block the others."""
+        st = self.feed_status[name]
+        try:
+            data, modified = _fetch(FEEDS[name])
+        except Exception as e:
+            st["error"] = f"{type(e).__name__}: {e}"
+            log.warning("Feed %s failed: %s", name, st["error"])
+            return None
+        st.update(error=None, fetched_at=int(time.time()), updated_at=modified, entities=len(data.get("entity", [])))
+        return data, modified
+
     def poll(self) -> None:
-        vp = _fetch(FEEDS["vehicles"])
-        tu = _fetch(FEEDS["trips"])
-        g: StaticGTFS = self._static()
-
+        feeds = self._static.feeds
         delays: dict[str, int] = {}
-        for ent in tu.get("entity", []):
-            t = ent.get("tripUpdate") or {}
-            tid = (t.get("trip") or {}).get("tripId")
-            if not tid:
+        trains: list[dict] = []
+        newest = 0
+        for vname, tname, g in (("vehicles", "trips", feeds["cercanias"]), ("vehicles_ld", "trips_ld", feeds["ld"])):
+            tu = self._get(tname)
+            if tu:
+                delays |= _delays(tu[0])
+            vp = self._get(vname)
+            if not vp:
+                # Keep the last known trains of this family rather than dropping them.
+                trains += [t for t in self.trains if (t["service"] == "cercanias") == (g.kind == "cercanias")]
                 continue
-            d = t.get("delay")
-            if d is None:
-                stus = t.get("stopTimeUpdate") or []
-                if stus:
-                    d = (stus[0].get("arrival") or stus[0].get("departure") or {}).get("delay")
-            if d is not None:
-                delays[tid] = int(d)
+            newest = max(newest, vp[1])
+            trains += self._trains(vp[0], vp[1], g, delays)
+        if not newest:
+            raise RuntimeError("no vehicle feed could be read")
 
-        trains = []
+        with self.cond:
+            self.trains = trains
+            self.delays = delays
+            self.feed_ts = newest
+            self.fetched_at = time.time()
+            self.version += 1
+            self._snapshot_json = json.dumps(self.snapshot_unlocked(), ensure_ascii=False).encode()
+            self.cond.notify_all()
+        log.info("Realtime: %d trains, %d delays (v%d)", len(trains), len(delays), self.version)
+
+    @staticmethod
+    def _trains(vp: dict, feed_time: int, g: StaticGTFS, delays: dict[str, int]) -> list[dict]:
+        out = []
         for ent in vp.get("entity", []):
             v = ent.get("vehicle") or {}
             pos = v.get("position") or {}
@@ -95,15 +155,16 @@ class LiveState:
             stop = g.stops.get(v.get("stopId", ""))
             stops = g.stop_times.get(tid) or []
             dest = g.stops.get(stops[-1][0]) if stops else None
-            trains.append({
+            out.append({
                 "id": ent.get("id"),
                 "train": veh.get("id", ""),
                 "trip_id": tid,
                 "lat": pos["latitude"],
                 "lon": pos["longitude"],
                 "line": line,
-                "color": route["color"] if route else "#888888",
-                "text_color": route["text"] if route else "#FFFFFF",
+                "service": route["service"] if route else ("cercanias" if g.kind == "cercanias" else "regional"),
+                "color": route["color"] if route else ("#888888" if g.kind == "cercanias" else ""),
+                "text_color": route["text"] if route else "",
                 "nucleo": route["nucleo"] if route else g.nucleo_of(tid),
                 "status": v.get("currentStatus", ""),
                 "stop_id": v.get("stopId", ""),
@@ -111,22 +172,17 @@ class LiveState:
                 "destination": dest["name"] if dest else "",
                 "platform": label.split("PLATF.(")[1].rstrip(")") if "PLATF.(" in label else None,
                 "delay": delays.get(tid),
-                "ts": int(v.get("timestamp") or 0),
+                # AV/LD/MD vehicles carry no timestamp of their own.
+                "ts": int(v.get("timestamp") or feed_time),
             })
-
-        with self.cond:
-            self.trains = trains
-            self.delays = delays
-            self.feed_ts = int((vp.get("header") or {}).get("timestamp") or 0)
-            self.fetched_at = time.time()
-            self.version += 1
-            self._snapshot_json = json.dumps(self.snapshot_unlocked(), ensure_ascii=False).encode()
-            self.cond.notify_all()
-        log.info("Realtime: %d trains, %d delays (v%d)", len(trains), len(delays), self.version)
+        return out
 
     def poll_alerts(self) -> None:
-        data = _fetch(FEEDS["alerts"])
-        g: StaticGTFS = self._static()
+        got = self._get("alerts")
+        if not got:
+            return
+        data = got[0]
+        g: StaticGTFS = self._static.feeds["cercanias"]
         now = time.time()
         alerts = []
         for ent in data.get("entity", []):
@@ -156,11 +212,15 @@ class LiveState:
 
     def status(self) -> dict:
         with self.lock:
+            by_service: dict[str, int] = {}
+            for t in self.trains:
+                by_service[t["service"]] = by_service.get(t["service"], 0) + 1
             return {
                 "version": self.version,
                 "feed_ts": self.feed_ts,
                 "fetched_at": int(self.fetched_at),
                 "trains": len(self.trains),
+                "by_service": by_service,
                 "alerts": len(self.alerts),
                 "error": self.last_error,
             }

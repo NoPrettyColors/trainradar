@@ -2,7 +2,7 @@
 
 Live map of Renfe trains across Spain, from AVE high-speed services to Cercanías and Rodalies, drawn over the national rail network and built only on open data. It also explains each data source, so people can see what is openly available. The interface is in Catalan, Spanish and English (`?lang=ca`, `es` or `en`; otherwise the browser's language). It runs at **https://trainradar.noprettycolors.com**.
 
-It's a personal side project. Its interface also serves as a real-world test of the [Brokkr](https://brokkr.noprettycolors.com) design system, with gaps logged in [docs/BROKKR-FINDINGS.md](docs/BROKKR-FINDINGS.md).
+It's a personal side project. Its interface also serves as a real-world test of the [Brokkr](https://brokkr.noprettycolors.com) design system, and the gaps it finds go back into Brokkr.
 
 ## Run locally
 
@@ -39,6 +39,7 @@ server/realtime.py      poller thread → normalised train snapshot from both GT
 server/network.py       IGN rail network: paged download, simplification, monthly refresh
 server/sources.py       catalogue of open data sources for the Open data panel
 server/app.py           stdlib HTTP server: JSON API + SSE + static files
+server/errors.py        fixed public labels for upstream errors
 web/                    MapLibre GL client in the Brokkr 1.1.0 app shell (no build step)
 ```
 
@@ -49,7 +50,7 @@ All clients share a single upstream poll, so traffic to Renfe stays the same how
 | Endpoint | Returns |
 |---|---|
 | `GET /api/trains` | Current snapshot: `{version, feed_ts, trains:[…]}` |
-| `GET /api/stream` | Server‑Sent Events, sending a `trains` event per new snapshot |
+| `GET /api/stream` | Server‑Sent Events, sending a `trains` event per new snapshot; 503 with `Retry-After` when the stream limit is reached |
 | `GET /api/trip/{trip_id}` | Line, delay and stop list with scheduled and expected times |
 | `GET /api/stop/{stop_id}` | Next departures (90 min) with delays, all services |
 | `GET /api/alerts?nucleo=` | Active alerts |
@@ -57,6 +58,10 @@ All clients share a single upstream poll, so traffic to Renfe stays the same how
 | `GET /api/network` | Rail network GeoJSON (`net`: high-speed, conventional, metre, other); 503 while downloading |
 | `GET /api/sources` | Data catalogue with live figures per source |
 | `GET /api/status` | Feed health and trains per service |
+
+Feed errors in `/api/sources` and `/api/status` are short labels (`timeout`, `HTTP 503`, `connection failed`, `bad data`); the full error is in the app log. Methods other than `GET` and `HEAD` get `405`.
+
+Each open stream holds a server thread, so the app caps them: 500 in total and 50 per client address (`CF-Connecting-IP` behind Cloudflare). Change the caps with `--max-streams` and `--max-streams-per-ip`, or `$TRAINRADAR_MAX_STREAMS` and `$TRAINRADAR_MAX_STREAMS_PER_IP`. A refused browser tries again after 30 to 60 seconds.
 
 ## Deployment
 

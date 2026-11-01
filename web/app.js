@@ -126,7 +126,6 @@ const map = new maplibregl.Map({
   attributionControl: { compact: true },
 });
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
-map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-left");
 // MapLibre only tracks window resizes; the container can also change size on its own (header wrap, hidden pane).
 new ResizeObserver(() => map.resize()).observe($("map"));
 
@@ -421,7 +420,13 @@ let online = true;
 function connect() {
   const es = new EventSource("/api/stream");
   es.addEventListener("trains", (e) => { online = true; onSnapshot(JSON.parse(e.data)); });
-  es.onerror = () => { online = false; updateFreshness(); };
+  es.onerror = () => {
+    online = false;
+    updateFreshness();
+    // EventSource retries dropped connections by itself, but gives up on an error response such as
+    // the 503 the server sends when it has too many streams open; try again later, spread out.
+    if (es.readyState === EventSource.CLOSED) setTimeout(connect, 30000 + Math.random() * 30000);
+  };
 }
 
 function onSnapshot(snap) {

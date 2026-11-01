@@ -7,13 +7,11 @@
   <meta name="description" content="Live map of Renfe trains in Spain, high speed to Cercanías, and the open data behind it. In Catalan, Spanish and English.">
   <link rel="icon" href="https://brokkr.noprettycolors.com/logos/logo_NPC_Avatar.svg" type="image/svg+xml">
   <!-- Apply a saved theme choice, and touch density on touch screens, before first paint. -->
-  <script>
-    try { const t = localStorage.getItem("trainradar-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
-    if (matchMedia("(pointer: coarse)").matches) document.documentElement.dataset.density = "touch";
-  </script>
+  <script src="theme.js?v={{v}}"></script>
   <link rel="preload" href="https://brokkr.noprettycolors.com/fonts/noto-sans/2.015/NotoSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://brokkr.noprettycolors.com/v/1.1.0/brokkr.css">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <!-- integrity: SHA-384 of the exact unpkg files; recompute when changing the MapLibre version. -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" integrity="sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css?v={{v}}">
 </head>
 <body>
@@ -129,7 +127,7 @@
     <span id="fresh" class="end" role="status" aria-live="polite">Connecting…</span>
   </footer>
 
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" integrity="sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj" crossorigin="anonymous"></script>
   <script src="i18n.js?v={{v}}"></script>
   <script src="app.js?v={{v}}"></script>
 </body>

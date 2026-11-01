@@ -36,6 +36,37 @@ ASSET_VERSION = hashlib.sha256(b"".join(
 log = logging.getLogger("trainradar")
 
 
+class StreamSlots:
+    """Caps concurrent /api/stream clients, in total and per client address.
+
+    Each stream holds a server thread for as long as the browser stays connected, so without a cap
+    a few scripted clients could exhaust threads and memory.
+    """
+
+    def __init__(self, total: int, per_ip: int):
+        self.total, self.per_ip = total, per_ip
+        self._lock = threading.Lock()
+        self._by_ip: dict[str, int] = {}
+
+    def acquire(self, ip: str) -> bool:
+        with self._lock:
+            n = self._by_ip.get(ip, 0)
+            if sum(self._by_ip.values()) >= self.total or n >= self.per_ip:
+                return False
+            self._by_ip[ip] = n + 1
+            return True
+
+    def release(self, ip: str) -> None:
+        with self._lock:
+            n = self._by_ip.pop(ip, 0) - 1
+            if n > 0:
+                self._by_ip[ip] = n
+
+    def in_use(self) -> int:
+        with self._lock:
+            return sum(self._by_ip.values())
+
+
 class Static:
     """Holds both static feeds and reloads them when the service day changes."""
 
@@ -109,6 +140,7 @@ class Static:
 STATIC: Static
 LIVE: LiveState
 NETWORK: Network
+STREAMS = StreamSlots(500, 50)
 
 
 def trip_detail(trip_id: str) -> dict | None:
@@ -214,6 +246,32 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, status: int = 200) -> None:
         self._send(json.dumps(obj, ensure_ascii=False).encode(), status=status)
 
+    def send_error(self, code, message=None, explain=None):
+        """JSON instead of the standard library's HTML error page, without echoing the request."""
+        self.log_error("code %d, message %s", code, message)
+        self.close_connection = True
+        try:
+            short = self.responses[code][0]
+        except KeyError:
+            short = "error"
+        body = json.dumps({"error": short.lower()}).encode()
+        self.send_response(code, short)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        if code == 405:
+            self.send_header("Allow", "GET, HEAD")
+        self.end_headers()
+        if getattr(self, "command", None) != "HEAD" and code >= 200 and code not in (204, 304):
+            self.wfile.write(body)
+
+    def __getattr__(self, name):
+        # BaseHTTPRequestHandler answers 501 to methods without a do_<METHOD>; every method but
+        # GET and HEAD gets 405 instead.
+        if name.startswith("do_"):
+            return lambda: self.send_error(405)
+        raise AttributeError(name)
+
     def do_HEAD(self):
         self.do_GET()
 
@@ -253,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/"):
                 return self._json({"error": "not found"}, 404)
             return self._static(path)
-        except (BrokenPipeError, ConnectionResetError):
+        except ConnectionError:  # client went away (broken pipe, reset or aborted)
             pass
 
     def _static(self, path: str) -> None:
@@ -270,7 +328,31 @@ class Handler(BaseHTTPRequestHandler):
         versioned = parse_qs(urlparse(self.path).query).get("v") == [ASSET_VERSION]
         self._send(body, ctype, cache="public, max-age=31536000, immutable" if versioned else "no-cache")
 
+    def _client_ip(self) -> str:
+        # In production the app only listens on 127.0.0.1 behind Caddy and Cloudflare, and the
+        # firewall only lets Cloudflare reach Caddy, so CF-Connecting-IP is the real client.
+        return self.headers.get("CF-Connecting-IP") or self.client_address[0]
+
     def _stream(self) -> None:
+        ip = self._client_ip()
+        if not STREAMS.acquire(ip):
+            log.warning("Stream refused for %s: %d streams open", ip, STREAMS.in_use())
+            self.send_response(503)
+            self.send_header("Retry-After", "30")
+            body = b'{"error":"too many live streams, retry later"}'
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+            return
+        try:
+            self._stream_events()
+        finally:
+            STREAMS.release(ip)
+
+    def _stream_events(self) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store, no-transform")
@@ -316,15 +398,21 @@ def sources_report(lang: str = "en") -> dict:
 
 
 def main() -> None:
-    global STATIC, LIVE, NETWORK
+    global STATIC, LIVE, NETWORK, STREAMS
     ap = argparse.ArgumentParser(description="Live map of Renfe trains in Spain")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--max-streams", type=int, default=int(os.environ.get("TRAINRADAR_MAX_STREAMS", 500)),
+                    help="concurrent /api/stream clients in total (default 500, or $TRAINRADAR_MAX_STREAMS)")
+    ap.add_argument("--max-streams-per-ip", type=int,
+                    default=int(os.environ.get("TRAINRADAR_MAX_STREAMS_PER_IP", 50)),
+                    help="concurrent /api/stream clients per address (default 50, or $TRAINRADAR_MAX_STREAMS_PER_IP)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+    STREAMS = StreamSlots(args.max_streams, args.max_streams_per_ip)
     STATIC = Static()
     STATIC.start_daily_reload()
     NETWORK = Network(DATA)

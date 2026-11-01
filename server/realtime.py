@@ -13,6 +13,7 @@ import time
 import urllib.request
 from email.utils import parsedate_to_datetime
 
+from . import errors
 from .static_gtfs import StaticGTFS
 
 log = logging.getLogger(__name__)
@@ -93,8 +94,8 @@ class LiveState:
                     last_alerts = time.time()
                 self.last_error = None
             except Exception as e:  # keep polling through upstream hiccups
-                self.last_error = f"{type(e).__name__}: {e}"
-                log.warning("Realtime poll failed: %s", self.last_error)
+                self.last_error = errors.label(e)
+                log.warning("Realtime poll failed: %s: %s", type(e).__name__, e)
             time.sleep(POLL_S)
 
     def _get(self, name: str) -> tuple[dict, int] | None:
@@ -103,8 +104,8 @@ class LiveState:
         try:
             data, modified = _fetch(FEEDS[name])
         except Exception as e:
-            st["error"] = f"{type(e).__name__}: {e}"
-            log.warning("Feed %s failed: %s", name, st["error"])
+            st["error"] = errors.label(e)
+            log.warning("Feed %s failed: %s: %s", name, type(e).__name__, e)
             return None
         st.update(error=None, fetched_at=int(time.time()), updated_at=modified, entities=len(data.get("entity", [])))
         return data, modified

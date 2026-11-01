@@ -17,6 +17,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+from . import errors
+
 log = logging.getLogger(__name__)
 
 API = "https://api-features.idee.es/collections/railwaylink/items"
@@ -124,7 +126,7 @@ class Network:
             self._load()
             self.error = None
         except Exception as e:
-            self.error = f"{type(e).__name__}: {e}"
+            self.error = errors.label(e)
             log.exception("Rail network download failed")
 
     def start(self) -> None:

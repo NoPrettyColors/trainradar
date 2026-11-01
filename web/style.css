@@ -1,7 +1,7 @@
 /* TrainRadar on Brokkr 1.1.0 (brokkr.noprettycolors.com/v/1.1.0/brokkr.css).
    The page is Brokkr's app shell: header, toolbar, content with the inspector beside it, status bar.
    Every color, size and type value comes from a Brokkr token. App-only variables
-   cover the gaps logged in docs/BROKKR-FINDINGS.md. */
+   cover gaps in Brokkr (numbered as in the maintainer's findings log). */
 
 @font-face { font-family: "Noto Sans"; font-weight: 400; font-style: normal; font-display: swap;
   src: url("https://brokkr.noprettycolors.com/fonts/noto-sans/2.015/NotoSans-Regular.woff2") format("woff2"); }

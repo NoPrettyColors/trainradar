@@ -58,3 +58,11 @@ The maintainer deploys `main` to production. Contributors never need access to t
 - Expected times apply the trip's current delay to all remaining stops, which is a simple estimate.
 - A few Renfe shapes have gaps that draw as straight segments.
 - Alerts have no end date in the feed, so some old notices stay "active".
+
+## Contributing
+
+Issues and pull requests are welcome. Keep the server dependency-free beyond `tzdata`, take UI values from Brokkr tokens, and never commit server addresses, keys, certificates or tokens.
+
+## License
+
+[MIT](LICENSE). Bundled and runtime third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). TrainRadar is not affiliated with Renfe.

@@ -2,7 +2,12 @@
 data/
 __pycache__/
 *.pyc
-.claude/settings.local.json
+.claude/
 
 # Internal notes on Brokkr gaps; kept on the maintainer's machine.
 docs/BROKKR-FINDINGS.md
+
+# Deploy config and the maintainer's Claude config are private; they live outside this repository.
+deploy/
+CLAUDE.md
+CLAUDE.local.md

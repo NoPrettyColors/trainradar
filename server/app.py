@@ -329,8 +329,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(body, ctype, cache="public, max-age=31536000, immutable" if versioned else "no-cache")
 
     def _client_ip(self) -> str:
-        # In production the app only listens on 127.0.0.1 behind Caddy and Cloudflare, and the
-        # firewall only lets Cloudflare reach Caddy, so CF-Connecting-IP is the real client.
+        # In production the app only listens on 127.0.0.1 and only Cloudflare can reach the
+        # proxy in front of it, so CF-Connecting-IP is the real client.
         return self.headers.get("CF-Connecting-IP") or self.client_address[0]
 
     def _stream(self) -> None:

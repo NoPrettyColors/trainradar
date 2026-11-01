@@ -26,6 +26,8 @@ Maintainers merge with **squash merge** only, so the PR title becomes the commit
 - **Languages:** the interface is in Catalan, Spanish and English. New interface text needs all three (`web/i18n.js`, or `L(en, es, ca)` in `server/sources.py`); if you can't write one, say so in the PR and a maintainer will add it.
 - **UI:** values come from Brokkr tokens (`--npc-*`); app-only variables use the `--app-` prefix. No hard-coded colours or sizes.
 - **Data:** only open, documented sources with a licence that allows reuse. Credit them in the app's data panel and in `THIRD-PARTY-NOTICES.md`.
+- **Assets:** `index.html` asks for every file in `web/` with `?v={{v}}`, which the server fills in with a hash of `web/`, so a release reaches browsers at once. Keep it on any new asset, including sprite references in JS.
+- **External files:** a file loaded from a CDN carries `integrity` (SHA-384 of the exact file) and `crossorigin="anonymous"`. Recompute the hash when you bump a version. The live site has a strict Content-Security-Policy, so say in the PR if you add an external host, an inline `<script>` or a worker.
 - **Line endings:** LF.
 
 ## Security

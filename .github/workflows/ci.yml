@@ -24,10 +24,6 @@ jobs:
         run: python -m compileall -q server
       - name: Import the server
         run: python -c "import server.app, server.realtime, server.static_gtfs"
-      - name: Check shell scripts
-        run: |
-          for f in deploy/*.sh; do bash -n "$f"; done
-          shellcheck -S warning deploy/*.sh
       - name: Check JavaScript syntax
         run: for f in web/*.js; do node --check "$f"; done
       - name: No private keys or certificates

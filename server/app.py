@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import json
 import logging
 import mimetypes
@@ -26,6 +27,11 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 # Deployments keep the GTFS cache outside the release directory so it survives updates.
 DATA = Path(os.environ.get("TRAINRADAR_DATA", ROOT / "data"))
+# Cloudflare tells browsers to keep static files for hours, so index.html asks for them with
+# ?v=<hash of the web files>: every release gets new URLs, and a deploy shows at once.
+ASSET_VERSION = hashlib.sha256(b"".join(
+    p.read_bytes() for p in sorted(WEB.rglob("*")) if p.is_file() and p.name != "index.html"
+)).hexdigest()[:12]
 
 log = logging.getLogger("trainradar")
 
@@ -256,7 +262,12 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript",):
             ctype += "; charset=utf-8"
-        self._send(f.read_bytes(), ctype, cache="no-cache")
+        body = f.read_bytes()
+        if f.name == "index.html":
+            return self._send(body.replace(b"{{v}}", ASSET_VERSION.encode()), ctype, cache="no-cache")
+        # A versioned URL never changes content, so it can be kept for good.
+        versioned = parse_qs(urlparse(self.path).query).get("v") == [ASSET_VERSION]
+        self._send(body, ctype, cache="public, max-age=31536000, immutable" if versioned else "no-cache")
 
     def _stream(self) -> None:
         self.send_response(200)

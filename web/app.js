@@ -96,7 +96,7 @@ function syncThemeButton() {
   const btn = $("theme-btn");
   btn.setAttribute("aria-label", `Switch to ${next} mode`);
   btn.title = `Switch to ${next} mode`;
-  btn.querySelector("use").setAttribute("href", `icons/sprite.svg#npc-icon-${next}`);
+  btn.querySelector("use").setAttribute("href", `icons/sprite.svg?v=${document.documentElement.dataset.v}#npc-icon-${next}`);
 }
 
 function setTheme(t) {

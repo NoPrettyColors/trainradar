@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-v="{{v}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,7 +14,7 @@
   <link rel="preload" href="https://brokkr.noprettycolors.com/fonts/noto-sans/2.015/NotoSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://brokkr.noprettycolors.com/v/1.1.0/brokkr.css">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v={{v}}">
 </head>
 <body>
   <!-- Brokkr app shell: header, toolbar, content with the inspector beside it, status bar. -->
@@ -26,7 +26,7 @@
     </a>
     <span class="context">Spain's trains from open data</span>
     <button id="theme-btn" class="icon-button" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
-      <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-dark"></use></svg>
+      <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-dark"></use></svg>
     </button>
   </header>
 
@@ -54,18 +54,18 @@
     <div class="group grow">
       <label class="field search">
         <span class="sr">Find a train or station</span>
-        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-search"></use></svg>
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-search"></use></svg>
         <input id="search" type="search" placeholder="Train no. or station" autocomplete="off" list="search-list">
         <datalist id="search-list"></datalist>
       </label>
     </div>
     <div class="group">
       <button id="data-btn" class="button" type="button" aria-expanded="false">
-        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-info"></use></svg>
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-info"></use></svg>
         <span class="label">Open data</span>
       </button>
       <button id="alerts-btn" class="button" type="button" aria-expanded="false">
-        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-notification"></use></svg>
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-notification"></use></svg>
         <span class="label">Alerts</span> <span id="alerts-count" class="count">0</span>
       </button>
     </div>
@@ -104,7 +104,7 @@
 
     <aside id="panel" class="inspector" hidden>
       <button id="panel-close" class="icon-button close" type="button" aria-label="Close" title="Close">
-        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#npc-icon-close"></use></svg>
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg?v={{v}}#npc-icon-close"></use></svg>
       </button>
       <div id="panel-body"></div>
     </aside>
@@ -120,6 +120,6 @@
   </footer>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v={{v}}"></script>
 </body>
 </html>

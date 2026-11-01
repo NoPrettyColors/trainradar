@@ -577,8 +577,18 @@ async function refreshPanel({ fly = false } = {}) {
 function badge(line, color, text, service) {
   const bg = service && service !== "cercanias" ? serviceColor(service) : color;
   const fg = service && service !== "cercanias" ? token("--app-service-on-fill") : text;
-  return `<span class="badge" style="background:${esc(bg)};color:${esc(fg)}">${esc(line)}</span>`;
+  return `<span class="badge" data-bg="${esc(bg)}" data-fg="${esc(fg)}">${esc(line)}</span>`;
 }
+
+// The CSP allows no inline style attributes, so badge colors travel in data-bg / data-fg and are
+// applied through the style object here, whenever the panel's content changes.
+new MutationObserver(() => {
+  for (const el of $("panel-body").querySelectorAll("[data-bg]")) {
+    el.style.background = el.dataset.bg;
+    el.style.color = el.dataset.fg;
+    el.removeAttribute("data-bg");
+  }
+}).observe($("panel-body"), { childList: true, subtree: true });
 
 function renderTrip(d, fly) {
   const tr = d.train;
@@ -661,7 +671,7 @@ async function renderData(req) {
   if (req !== panelReq || state.selected?.type !== "data") return;
   if (!d) { $("panel-body").innerHTML = `<p class="empty">${esc(t("data.failed"))}</p>`; return; }
   const counts = SERVICES.map((k) => [k, serviceName(k)])
-    .map(([k, name]) => `<li><span class="badge" style="background:${esc(k === "cercanias" ? token("--npc-color-surface-raised") : serviceColor(k))};color:${esc(k === "cercanias" ? token("--npc-color-text-default") : token("--app-service-on-fill"))}">${fmtInt.format(d.trains[k] || 0)}</span>${esc(name)}</li>`)
+    .map(([k, name]) => `<li><span class="badge" data-bg="${esc(k === "cercanias" ? token("--npc-color-surface-raised") : serviceColor(k))}" data-fg="${esc(k === "cercanias" ? token("--npc-color-text-default") : token("--app-service-on-fill"))}">${fmtInt.format(d.trains[k] || 0)}</span>${esc(name)}</li>`)
     .join("");
   // Brokkr inspector content: the properties as key and value rows.
   const cards = d.used.map((s) => `

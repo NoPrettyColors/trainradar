@@ -1,0 +1,11 @@
+# Weekly update PRs for the pinned Python requirement and the GitHub Actions in CI.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

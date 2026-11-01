@@ -11,7 +11,21 @@ import socket
 import urllib.error
 
 
+class TooLarge(ValueError):
+    """An upstream response passed its size cap."""
+
+
+def read_capped(response, limit: int) -> bytes:
+    """Read a whole response, refusing one larger than limit bytes."""
+    data = response.read(limit + 1)
+    if len(data) > limit:
+        raise TooLarge(f"response over {limit} bytes")
+    return data
+
+
 def label(e: BaseException) -> str:
+    if isinstance(e, TooLarge):
+        return "too large"
     if isinstance(e, urllib.error.HTTPError):
         return f"HTTP {e.code}"
     if isinstance(e, urllib.error.URLError):

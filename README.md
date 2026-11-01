@@ -1,8 +1,10 @@
-# Trains Live — Renfe Cercanías / Rodalies map
+# TrainRadar
 
-Live map of every Renfe commuter train in Spain (all 15 *núcleos*, Rodalies de Catalunya included), built only on Renfe's official open data.
+Live map of every Renfe commuter train in Spain (all 15 *núcleos*, Rodalies de Catalunya included), built only on Renfe's official open data. It runs at **https://trainradar.noprettycolors.com**.
 
-## Run
+It's a personal side project. Its interface also serves as a real-world test of the [Brokkr](https://brokkr.noprettycolors.com) design system, with gaps logged in [docs/BROKKR-FINDINGS.md](docs/BROKKR-FINDINGS.md).
+
+## Run locally
 
 ```bash
 python -m venv .venv
@@ -10,7 +12,7 @@ python -m venv .venv
 .venv/Scripts/python -m server.app --port 8000
 ```
 
-Open http://127.0.0.1:8000. The first start downloads the static GTFS (~16 MB) into `data/`. It is refreshed when older than 24 h and reloaded after the service day changes.
+Open http://127.0.0.1:8000. The first start downloads the static GTFS (~16 MB) into `data/`, or into `$TRAINRADAR_DATA` if that's set. It is refreshed when older than 24 h and reloaded after the service day changes.
 
 ## Data sources
 
@@ -29,7 +31,7 @@ The basemap is OpenFreeMap (OpenStreetMap data). The núcleo is the first two di
 server/static_gtfs.py   download + index static GTFS (only today's/yesterday's trips are kept)
 server/realtime.py      poller thread → normalised train snapshot
 server/app.py           stdlib HTTP server: JSON API + SSE + static files
-web/                    MapLibre GL client (no build step)
+web/                    MapLibre GL client on Brokkr 1.0.3 tokens (no build step)
 ```
 
 All clients share a single upstream poll, so traffic to Renfe stays the same however many viewers there are.
@@ -45,6 +47,10 @@ All clients share a single upstream poll, so traffic to Renfe stays the same how
 | `GET /api/alerts?nucleo=` | Active alerts |
 | `GET /api/shapes`, `/api/stops`, `/api/nucleos` | GeoJSON layers and network bounding boxes |
 | `GET /api/status` | Feed health |
+
+## Deployment
+
+The maintainer deploys `main` to production. Contributors never need access to the server.
 
 ## Known limits
 

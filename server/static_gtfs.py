@@ -81,7 +81,7 @@ class StaticGTFS:
 def _download(dest: Path) -> None:
     log.info("Downloading static GTFS from %s", GTFS_URL)
     tmp = dest.with_suffix(".part")
-    req = urllib.request.Request(GTFS_URL, headers={"User-Agent": "trains-es-mvp/0.1"})
+    req = urllib.request.Request(GTFS_URL, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)"})
     with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
         while chunk := r.read(1 << 20):
             f.write(chunk)

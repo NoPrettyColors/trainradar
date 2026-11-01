@@ -1,6 +1,6 @@
 """HTTP server: JSON API, Server-Sent Events stream and the static web client.
 
-Standard library only, so it runs on any Python 3.11+ without installing packages.
+Standard library only (plus tzdata on Windows), so it runs on any Python 3.11+.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import gzip
 import json
 import logging
 import mimetypes
+import os
 import threading
 import time
 from datetime import datetime
@@ -22,9 +23,10 @@ from .realtime import LiveState
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
-DATA = ROOT / "data"
+# Deployments keep the GTFS cache outside the release directory so it survives updates.
+DATA = Path(os.environ.get("TRAINRADAR_DATA", ROOT / "data"))
 
-log = logging.getLogger("trains")
+log = logging.getLogger("trainradar")
 
 
 class Static:
@@ -154,7 +156,7 @@ def stop_board(stop_id: str, window_min: int = 90, limit: int = 25) -> dict | No
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "TrainsES/0.1"
+    server_version = "TrainRadar/0.1"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
@@ -223,8 +225,9 @@ class Handler(BaseHTTPRequestHandler):
     def _stream(self) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "no-store, no-transform")
         self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")  # tell proxies not to buffer the stream
         self.end_headers()
         self.close_connection = True
         version = -1

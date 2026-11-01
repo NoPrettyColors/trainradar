@@ -1,0 +1,4 @@
+# Keep LF everywhere: deploy scripts and configs run on Linux.
+* text=auto eol=lf
+*.svg text eol=lf
+*.zip binary

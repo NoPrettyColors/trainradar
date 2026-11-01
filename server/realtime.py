@@ -23,7 +23,7 @@ STALE_S = 180
 
 
 def _fetch(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "trains-es-mvp/0.1", "Accept": "application/json"})
+    req = urllib.request.Request(url, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)", "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r)
 

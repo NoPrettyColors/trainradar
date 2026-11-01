@@ -1,7 +1,8 @@
 """Catalogue of the open data behind the map, served to the client's data panel.
 
-Each entry says who publishes the data, what it is, how often it changes and
-what TrainRadar uses it for, so the app can teach what is openly available.
+Each entry says who publishes the data, what it is, how often the publisher
+updates it ("updates"), how often TrainRadar fetches it ("checks") and what
+TrainRadar uses it for, so the app can teach what is openly available.
 Live numbers (counts, last update, errors) are added by app.py.
 """
 
@@ -17,6 +18,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS Realtime (JSON and Protocol Buffers)",
         "updates": "About every 20 seconds",
+        "checks": "Every 20 seconds",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/ubicacion-vehiculos",
         "feed": "https://gtfsrt.renfe.com/vehicle_positions.json",
@@ -28,6 +30,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS Realtime",
         "updates": "About every 20 seconds",
+        "checks": "Every 20 seconds",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/horarios-viaje-cercanias",
         "feed": "https://gtfsrt.renfe.com/trip_updates.json",
@@ -39,6 +42,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS Realtime",
         "updates": "About every 20 seconds",
+        "checks": "Every 20 seconds",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/posicion-vehiculos-av-ld-md",
         "feed": "https://gtfsrt.renfe.com/vehicle_positions_LD.json",
@@ -51,6 +55,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS Realtime",
         "updates": "About every 20 seconds",
+        "checks": "Every 20 seconds",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/horarios-viaje-alta-velocidad-larga-media-distancia",
         "feed": "https://gtfsrt.renfe.com/trip_updates_LD.json",
@@ -62,6 +67,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS Realtime",
         "updates": "When Renfe publishes or withdraws a notice",
+        "checks": "Every 2 minutes",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/incidencias-avisos",
         "feed": "https://gtfsrt.renfe.com/alerts.json",
@@ -73,6 +79,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS (static)",
         "updates": "Daily",
+        "checks": "Daily: downloaded again when over 24 hours old, reloaded after 03:00",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/horarios-cercanias",
         "feed": "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip",
@@ -84,6 +91,7 @@ USED = [
         "publisher": RENFE,
         "format": "GTFS (static)",
         "updates": "Daily",
+        "checks": "Daily: downloaded again when over 24 hours old, reloaded after 03:00",
         "licence": CC_BY,
         "page": "https://data.renfe.com/dataset/horarios-de-alta-velocidad-larga-distancia-y-media-distancia",
         "feed": "https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip",
@@ -94,7 +102,8 @@ USED = [
         "name": "Rail network (INSPIRE transport networks)",
         "publisher": "Instituto Geográfico Nacional (IGN)",
         "format": "OGC API Features (GeoJSON)",
-        "updates": "Refreshed by TrainRadar monthly",
+        "updates": "When IGN publishes a new version",
+        "checks": "Monthly: checked every 6 hours, downloaded again when over 30 days old",
         "licence": CC_BY,
         "page": "https://api-features.idee.es/collections/railwaylink",
         "feed": "https://api-features.idee.es/collections/railwaylink/items",
@@ -107,6 +116,7 @@ USED = [
         "publisher": "OpenFreeMap, with OpenStreetMap data",
         "format": "Vector tiles",
         "updates": "Weekly",
+        "checks": "Your browser loads the map tiles from OpenFreeMap directly",
         "licence": {"name": "ODbL (data)", "url": "https://www.openstreetmap.org/copyright"},
         "page": "https://openfreemap.org",
         "use": "Land, sea, roads and place names.",

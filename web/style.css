@@ -280,6 +280,25 @@ input::placeholder { color: var(--npc-control-input-placeholder-color); }
 .source-live { color: var(--npc-color-status-info-text); font-size: var(--npc-type-caption-font-size); }
 .source-live:empty { display: none; }
 .more li { padding: var(--npc-space-4) 0; font-size: var(--npc-table-row-typography-font-size); }
+/* A source's properties: Brokkr inspector key and value rows. */
+.props {
+  display: grid; grid-template-columns: var(--npc-inspector-property-key-width) minmax(0, 1fr);
+  margin: var(--npc-space-8) 0 0;
+}
+.props dt, .props dd {
+  margin: 0; padding: var(--npc-inspector-property-padding-block) 0;
+  border-top: var(--npc-inspector-property-border-width) solid var(--npc-inspector-property-border-color);
+}
+.props dt {
+  padding-inline-end: var(--npc-space-8); color: var(--npc-inspector-property-key-color);
+  font: var(--npc-inspector-property-key-typography-font-weight) var(--npc-inspector-property-key-typography-font-size)/var(--npc-inspector-property-key-typography-line-height) var(--npc-inspector-property-key-typography-font-family);
+}
+.props dd {
+  color: var(--npc-inspector-property-value-color);
+  font: var(--npc-inspector-property-value-typography-font-weight) var(--npc-inspector-property-value-typography-font-size)/var(--npc-inspector-property-value-typography-line-height) var(--npc-inspector-property-value-typography-font-family);
+}
+.steps { margin: 0; padding-inline-start: var(--npc-space-20); font-size: var(--npc-table-row-typography-font-size); }
+.steps li { padding: var(--npc-space-4) 0; }
 
 /* ---------------------------------------------------------------- status bar */
 

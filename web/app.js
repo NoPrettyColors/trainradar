@@ -616,6 +616,20 @@ function liveLine(src) {
   return bits.length ? esc(bits.join(" · ")) : "";
 }
 
+// How a train's position gets from Renfe to the screen, with the live age of the feeds.
+function freshness(d) {
+  const live = Object.fromEntries(d.used.map((s) => [s.id, s.live || {}]));
+  const newest = Math.max(live.vehicles.updated_at || 0, live.vehicles_ld.updated_at || 0);
+  return `
+    <ol class="steps">
+      <li>Renfe updates its live feeds about every 20 seconds, from what each train reports.${newest ? ` <span class="source-live">Last update ${ago(newest)}.</span>` : ""}</li>
+      <li>The TrainRadar server fetches each feed every 20 seconds, once for everyone, so Renfe's load stays the same however many people are watching.</li>
+      <li>New positions are pushed to your browser as soon as they arrive, and the dots glide to them. A position on the map is usually less than a minute behind the train.</li>
+      <li>Timetables and stations change daily and the rail network rarely, so the server keeps them in a cache, refreshes them in the background, and the map never waits for a download.</li>
+    </ol>
+    <p class="meta">In the status bar, "Synced" is the time of Renfe's last position update. "Renfe feed delayed" appears when Renfe hasn't updated for 3 minutes, and "Offline" when your connection drops. A faded train hasn't reported its position for over 5 minutes.</p>`;
+}
+
 async function renderData(req) {
   let d;
   try { d = await fetch("/api/sources").then((r) => r.json()); } catch { d = null; }
@@ -624,11 +638,18 @@ async function renderData(req) {
   const counts = Object.entries(SERVICE_NAMES)
     .map(([k, name]) => `<li><span class="badge" style="background:${esc(k === "cercanias" ? token("--npc-color-surface-raised") : serviceColor(k))};color:${esc(k === "cercanias" ? token("--npc-color-text-default") : token("--app-service-on-fill"))}">${fmtInt.format(d.trains[k] || 0)}</span>${esc(name)}</li>`)
     .join("");
+  // Brokkr inspector content: the properties as key and value rows.
   const cards = d.used.map((s) => `
     <article class="source">
       <h3>${esc(s.name)}</h3>
-      <p class="source-meta">${esc(s.publisher)} · ${esc(s.format)} · ${esc(s.updates)} · <a href="${esc(s.licence.url)}" target="_blank" rel="noopener">${esc(s.licence.name)}</a></p>
       <p>${esc(s.use)}</p>
+      <dl class="props">
+        <dt>Publisher</dt><dd>${esc(s.publisher)}</dd>
+        <dt>Format</dt><dd>${esc(s.format)}</dd>
+        <dt>Publisher updates</dt><dd>${esc(s.updates)}</dd>
+        <dt>TrainRadar fetches</dt><dd>${esc(s.checks)}</dd>
+        <dt>Licence</dt><dd><a href="${esc(s.licence.url)}" target="_blank" rel="noopener">${esc(s.licence.name)}</a></dd>
+      </dl>
       ${s.note ? `<p class="source-note">${esc(s.note)}</p>` : ""}
       <p class="source-live">${liveLine(s)}</p>
       <p class="source-links"><a href="${esc(s.page)}" target="_blank" rel="noopener">About the dataset</a>${s.feed ? ` · <a href="${esc(s.feed)}" target="_blank" rel="noopener">Open the raw data</a>` : ""}</p>
@@ -636,9 +657,11 @@ async function renderData(req) {
   const more = d.more.map((m) => `<li><a href="${esc(m.page)}" target="_blank" rel="noopener">${esc(m.name)}</a> <span class="source-meta">${esc(m.publisher)}</span></li>`).join("");
   $("panel-body").innerHTML = `
     <h2>Open data</h2>
-    <p class="meta">Everything on this map comes from open data published by public bodies in Spain. Here's each source, how often it changes and what TrainRadar does with it. Open any feed yourself: it's public.</p>
+    <p class="meta">Everything on this map comes from open data published by public bodies in Spain. Here's how fresh it is, each source, how often it changes and what TrainRadar does with it. Open any feed yourself: it's public.</p>
     <p class="section">Trains on the map now</p>
     <ul class="counts">${counts}</ul>
+    <p class="section">How fresh is it</p>
+    ${freshness(d)}
     <p class="section">Sources used</p>
     ${cards}
     <p class="section">More open rail data</p>

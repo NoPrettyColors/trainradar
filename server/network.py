@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 API = "https://api-features.idee.es/collections/railwaylink/items"
 PAGE = 1000
+MAX_PAGE_BYTES = 50 << 20  # a page of 1000 links is about 3 MB
 MAX_AGE_S = 30 * 24 * 3600
 TOLERANCE = 0.0002  # degrees, about 20 m: invisible at the zooms the layer is drawn
 UA = "trainradar/0.1 (+https://trainradar.noprettycolors.com)"
@@ -38,7 +39,7 @@ def _get(url: str) -> dict:
     for attempt in range(4):
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
-                return json.load(r)
+                return json.loads(errors.read_capped(r, MAX_PAGE_BYTES))
         except Exception:
             if attempt == 3:
                 raise

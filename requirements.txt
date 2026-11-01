@@ -1,1 +1,5 @@
-tzdata>=2024.1  # timezone database; Windows has none built in
+# Timezone database; Windows has none built in. Pinned with hashes, so pip refuses any other file.
+# Dependabot proposes updates (.github/dependabot.yml).
+tzdata==2026.5 \
+    --hash=sha256:b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac \
+    --hash=sha256:8cc73c0a0bfca7dbfa59235d60b2eff82231dee33f53d206db1acd9173cfc0a7

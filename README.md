@@ -59,7 +59,7 @@ All clients share a single upstream poll, so traffic to Renfe stays the same how
 | `GET /api/sources` | Data catalogue with live figures per source |
 | `GET /api/status` | Feed health and trains per service |
 
-Feed errors in `/api/sources` and `/api/status` are short labels (`timeout`, `HTTP 503`, `connection failed`, `bad data`); the full error is in the app log. Methods other than `GET` and `HEAD` get `405`.
+Feed errors in `/api/sources` and `/api/status` are short labels (`timeout`, `HTTP 503`, `connection failed`, `bad data`, `too large`); the full error is in the app log. Methods other than `GET` and `HEAD` get `405`.
 
 Each open stream holds a server thread, so the app caps them: 500 in total and 10 per client address (`CF-Connecting-IP` behind Cloudflare). Change the caps with `--max-streams` and `--max-streams-per-ip`, or `$TRAINRADAR_MAX_STREAMS` and `$TRAINRADAR_MAX_STREAMS_PER_IP`. A refused browser tries again after 30 to 60 seconds. Each stream is closed after 24 to 36 minutes with a `reconnect` event, and the browser opens a new one, so an idle client can't keep a slot.
 

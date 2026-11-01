@@ -28,6 +28,7 @@ FEEDS = {
 POLL_S = 20
 ALERTS_POLL_S = 120
 STALE_S = 180
+MAX_FEED_BYTES = 20 << 20  # each feed is about 120 KB
 
 
 def _fetch(url: str) -> tuple[dict, int]:
@@ -38,7 +39,7 @@ def _fetch(url: str) -> tuple[dict, int]:
     """
     req = urllib.request.Request(url, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)", "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=20) as r:
-        data = json.load(r)
+        data = json.loads(errors.read_capped(r, MAX_FEED_BYTES))
         lm = r.headers.get("Last-Modified")
     try:
         modified = int(parsedate_to_datetime(lm).timestamp()) if lm else 0

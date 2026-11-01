@@ -21,6 +21,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .errors import TooLarge
+
 log = logging.getLogger(__name__)
 
 FEEDS = {
@@ -29,6 +31,7 @@ FEEDS = {
 }
 TZ = ZoneInfo("Europe/Madrid")
 MAX_AGE_S = 24 * 3600
+MAX_ZIP_BYTES = 200 << 20  # the Cercanías zip is about 16 MB
 
 # The first two digits of a route_id identify the núcleo (regional network).
 NUCLEOS = {
@@ -118,7 +121,11 @@ def _download(url: str, dest: Path) -> None:
     tmp = dest.with_suffix(".part")
     req = urllib.request.Request(url, headers={"User-Agent": "trainradar/0.1 (+https://trainradar.noprettycolors.com)"})
     with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
+        size = 0
         while chunk := r.read(1 << 20):
+            size += len(chunk)
+            if size > MAX_ZIP_BYTES:
+                raise TooLarge(f"{url} is over {MAX_ZIP_BYTES} bytes")
             f.write(chunk)
     tmp.replace(dest)
 

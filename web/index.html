@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trains Live</title>
+  <meta name="description" content="Live map of Renfe Cercanías and Rodalies trains from Renfe open data">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>Trains Live <span class="sub">Cercanías · Rodalies</span></h1>
+    <label class="field">
+      <span class="sr">Network</span>
+      <select id="nucleo"><option value="">All of Spain</option></select>
+    </label>
+    <label class="field">
+      <span class="sr">Line</span>
+      <select id="line"><option value="">All lines</option></select>
+    </label>
+    <label class="field search">
+      <span class="sr">Find a train or station</span>
+      <input id="search" type="search" placeholder="Train no. or station" autocomplete="off" list="search-list">
+      <datalist id="search-list"></datalist>
+    </label>
+    <button id="alerts-btn" class="btn" type="button" aria-expanded="false">Alerts <span id="alerts-count" class="count">0</span></button>
+    <div id="fresh" class="fresh" role="status" aria-live="polite">Connecting…</div>
+  </header>
+
+  <main>
+    <div id="map" aria-label="Train map"></div>
+
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot ok"></i>On time</span>
+      <span><i class="dot minor"></i>1–5 min</span>
+      <span><i class="dot major"></i>&gt;5 min</span>
+      <span><i class="dot unknown"></i>No data</span>
+    </div>
+
+    <aside id="panel" class="panel" hidden>
+      <button id="panel-close" class="close" type="button" aria-label="Close">×</button>
+      <div id="panel-body"></div>
+    </aside>
+  </main>
+
+  <footer class="attrib">
+    Data: <a href="https://data.renfe.com" target="_blank" rel="noopener">Renfe Open Data</a> (GTFS / GTFS‑RT) · positions are approximate
+  </footer>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

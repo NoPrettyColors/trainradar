@@ -2,9 +2,10 @@
 
 // Interface text in Catalan, Spanish and English. Data from Renfe (station names, alerts)
 // stays as Renfe publishes it. Strings take {name} placeholders.
-// The language: ?lang= in the URL, else the saved choice, else the browser's, else English.
+// The language: ?lang= in the URL, else the visitor's saved choice, else Spanish.
 
 const LANGS = ["ca", "es", "en"];
+const DEFAULT_LANG = "es";
 const LANG_KEY = "trainradar-lang";
 
 const STRINGS = {
@@ -347,11 +348,7 @@ function pickLang() {
     const saved = localStorage.getItem(LANG_KEY);
     if (LANGS.includes(saved)) return saved;
   } catch {}
-  for (const l of navigator.languages || [navigator.language]) {
-    const base = String(l).toLowerCase().split("-")[0];
-    if (LANGS.includes(base)) return base;
-  }
-  return "en";
+  return DEFAULT_LANG;
 }
 
 let lang = pickLang();

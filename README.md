@@ -1,6 +1,6 @@
 # TrainRadar
 
-Live map of Renfe trains across Spain, from AVE high-speed services to Cercanías and Rodalies, drawn over the national rail network and built only on open data. It also explains each data source, so people can see what is openly available. The interface is in Catalan, Spanish and English (`?lang=ca`, `es` or `en`; otherwise the browser's language). It runs at **https://trainradar.noprettycolors.com**.
+Live map of Renfe trains across Spain, from AVE high-speed services to Cercanías and Rodalies, drawn over the national rail network and built only on open data. It also explains each data source, so people can see what is openly available. The interface is in Catalan, Spanish and English (Spanish by default; `?lang=ca`, `es` or `en` picks one, and a visitor's choice is remembered). It runs at **https://trainradar.noprettycolors.com**.
 
 It's a personal side project. Its interface also serves as a real-world test of the [Brokkr](https://brokkr.noprettycolors.com) design system, and the gaps it finds go back into Brokkr.
 

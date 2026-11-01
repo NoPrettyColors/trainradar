@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-v="{{v}}">
+<html lang="es" data-v="{{v}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -127,8 +127,9 @@
     <span id="fresh" class="end" role="status" aria-live="polite">Connecting…</span>
   </footer>
 
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" integrity="sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj" crossorigin="anonymous"></script>
+  <!-- i18n.js first: it is tiny and swaps the page's text before the map library loads. -->
   <script src="i18n.js?v={{v}}"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" integrity="sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj" crossorigin="anonymous"></script>
   <script src="app.js?v={{v}}"></script>
 </body>
 </html>
